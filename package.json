@@ -42,67 +42,67 @@
         "command": "serviceBusEmulator.refresh",
         "title": "Refresh",
         "icon": "$(refresh)",
-        "category": "Service Bus Emulator Explorer"
+        "category": "Service Bus Emulator"
       },
       {
         "command": "serviceBusEmulator.addConnection",
         "title": "Add Connection",
         "icon": "$(add)",
-        "category": "Service Bus Emulator Explorer"
+        "category": "Service Bus Emulator"
       },
       {
         "command": "serviceBusEmulator.editConnection",
         "title": "Edit Connection",
         "icon": "$(edit)",
-        "category": "Service Bus Emulator Explorer"
+        "category": "Service Bus Emulator"
       },
       {
         "command": "serviceBusEmulator.removeConnection",
         "title": "Remove Connection",
         "icon": "$(trash)",
-        "category": "Service Bus Emulator Explorer"
+        "category": "Service Bus Emulator"
       },
       {
         "command": "serviceBusEmulator.peekMessages",
         "title": "Peek Messages",
         "icon": "$(eye)",
-        "category": "Service Bus Emulator Explorer"
+        "category": "Service Bus Emulator"
       },
       {
         "command": "serviceBusEmulator.sendMessage",
         "title": "Send Message",
         "icon": "$(mail)",
-        "category": "Service Bus Emulator Explorer"
+        "category": "Service Bus Emulator"
       },
       {
         "command": "serviceBusEmulator.purgeMessages",
         "title": "Purge Messages",
         "icon": "$(trash)",
-        "category": "Service Bus Emulator Explorer"
+        "category": "Service Bus Emulator"
       },
       {
         "command": "serviceBusEmulator.refreshEntity",
         "title": "Refresh",
         "icon": "$(refresh)",
-        "category": "Service Bus Emulator Explorer"
+        "category": "Service Bus Emulator"
       },
       {
         "command": "serviceBusEmulator.createQueue",
         "title": "Create Queue",
         "icon": "$(add)",
-        "category": "Service Bus Emulator Explorer"
+        "category": "Service Bus Emulator"
       },
       {
         "command": "serviceBusEmulator.createTopic",
         "title": "Create Topic",
         "icon": "$(add)",
-        "category": "Service Bus Emulator Explorer"
+        "category": "Service Bus Emulator"
       },
       {
         "command": "serviceBusEmulator.createSubscription",
         "title": "Create Subscription",
         "icon": "$(add)",
-        "category": "Service Bus Emulator Explorer"
+        "category": "Service Bus Emulator"
       }
     ],
     "menus": {
