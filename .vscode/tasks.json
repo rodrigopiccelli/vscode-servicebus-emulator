@@ -1,0 +1,23 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "npm",
+      "script": "compile",
+      "problemMatcher": ["$tsc-watch"],
+      "isBackground": false,
+      "presentation": {
+        "reveal": "silent"
+      },
+      "group": "build"
+    },
+    {
+      "label": "build sidecar",
+      "type": "shell",
+      "command": "dotnet",
+      "args": ["build", "sidecar/ServiceBusEmulatorSidecar.csproj"],
+      "group": "build",
+      "problemMatcher": "$msCompile"
+    }
+  ]
+}

@@ -1,0 +1,198 @@
+{
+  "name": "servicebus-emulator-explorer",
+  "displayName": "Service Bus Emulator Explorer",
+  "description": "Browse queues, topics, peek and send messages on the Azure Service Bus Emulator",
+  "version": "0.2.0",
+  "publisher": "rodrigopiccelli",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rodrigopiccelli/vscode-servicebus-emulator"
+  },
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "serviceBusEmulator",
+          "title": "Service Bus Emulator",
+          "icon": "media/servicebus.svg"
+        }
+      ]
+    },
+    "views": {
+      "serviceBusEmulator": [
+        {
+          "id": "serviceBusExplorer",
+          "name": "Explorer",
+          "icon": "media/servicebus.svg"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "serviceBusEmulator.refresh",
+        "title": "Refresh",
+        "icon": "$(refresh)",
+        "category": "Service Bus Emulator"
+      },
+      {
+        "command": "serviceBusEmulator.addConnection",
+        "title": "Add Connection",
+        "icon": "$(add)",
+        "category": "Service Bus Emulator"
+      },
+      {
+        "command": "serviceBusEmulator.editConnection",
+        "title": "Edit Connection",
+        "icon": "$(edit)",
+        "category": "Service Bus Emulator"
+      },
+      {
+        "command": "serviceBusEmulator.removeConnection",
+        "title": "Remove Connection",
+        "icon": "$(trash)",
+        "category": "Service Bus Emulator"
+      },
+      {
+        "command": "serviceBusEmulator.peekMessages",
+        "title": "Peek Messages",
+        "icon": "$(eye)",
+        "category": "Service Bus Emulator"
+      },
+      {
+        "command": "serviceBusEmulator.sendMessage",
+        "title": "Send Message",
+        "icon": "$(mail)",
+        "category": "Service Bus Emulator"
+      },
+      {
+        "command": "serviceBusEmulator.purgeMessages",
+        "title": "Purge Messages",
+        "icon": "$(trash)",
+        "category": "Service Bus Emulator"
+      },
+      {
+        "command": "serviceBusEmulator.refreshEntity",
+        "title": "Refresh",
+        "icon": "$(refresh)",
+        "category": "Service Bus Emulator"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "serviceBusEmulator.addConnection",
+          "when": "view == serviceBusExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "serviceBusEmulator.refresh",
+          "when": "view == serviceBusExplorer",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "serviceBusEmulator.editConnection",
+          "when": "view == serviceBusExplorer && viewItem == connection",
+          "group": "inline"
+        },
+        {
+          "command": "serviceBusEmulator.removeConnection",
+          "when": "view == serviceBusExplorer && viewItem == connection"
+        },
+        {
+          "command": "serviceBusEmulator.editConnection",
+          "when": "view == serviceBusExplorer && viewItem == connection"
+        },
+        {
+          "command": "serviceBusEmulator.peekMessages",
+          "when": "view == serviceBusExplorer && viewItem =~ /^(queue|subscription)$/",
+          "group": "inline@1"
+        },
+        {
+          "command": "serviceBusEmulator.sendMessage",
+          "when": "view == serviceBusExplorer && viewItem =~ /^(queue|topic)$/",
+          "group": "inline@2"
+        },
+        {
+          "command": "serviceBusEmulator.refreshEntity",
+          "when": "view == serviceBusExplorer && viewItem =~ /^(queue|subscription|topic|connection)$/",
+          "group": "inline@3"
+        },
+        {
+          "command": "serviceBusEmulator.peekMessages",
+          "when": "view == serviceBusExplorer && viewItem =~ /^(queue|subscription)$/",
+          "group": "1_messages@1"
+        },
+        {
+          "command": "serviceBusEmulator.sendMessage",
+          "when": "view == serviceBusExplorer && viewItem =~ /^(queue|topic)$/",
+          "group": "1_messages@2"
+        },
+        {
+          "command": "serviceBusEmulator.purgeMessages",
+          "when": "view == serviceBusExplorer && viewItem =~ /^(queue|subscription)$/",
+          "group": "2_actions@1"
+        },
+        {
+          "command": "serviceBusEmulator.refreshEntity",
+          "when": "view == serviceBusExplorer && viewItem =~ /^(queue|subscription|topic|connection)$/",
+          "group": "3_refresh@1"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Service Bus Emulator Explorer",
+      "properties": {
+        "serviceBusEmulator.peekMessageCount": {
+          "type": "number",
+          "default": 25,
+          "minimum": 1,
+          "maximum": 100,
+          "description": "Number of messages to peek at a time"
+        },
+        "serviceBusEmulator.autoRefreshInterval": {
+          "type": "number",
+          "default": 30,
+          "minimum": 0,
+          "description": "Auto-refresh interval in seconds for the tree view (0 to disable)"
+        },
+        "serviceBusEmulator.dotnetPath": {
+          "type": "string",
+          "default": "dotnet",
+          "description": "Path to the dotnet executable"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build:sidecar && npm run build:extension",
+    "build:extension": "webpack --mode production",
+    "build:sidecar": "dotnet publish sidecar/ServiceBusEmulatorSidecar.csproj -c Release -o sidecar/bin",
+    "watch": "webpack --watch",
+    "compile": "webpack",
+    "lint": "eslint src --ext ts",
+    "package": "npx mkdirp out && npx @vscode/vsce package -o out/servicebus-emulator-explorer.vsix"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "@vscode/vsce": "^3.7.1",
+    "eslint": "^8.56.0",
+    "ts-loader": "^9.5.0",
+    "typescript": "^5.3.0",
+    "webpack": "^5.89.0",
+    "webpack-cli": "^5.1.0"
+  }
+}

@@ -1,0 +1,7 @@
+node_modules/
+dist/
+out/
+*.vsix
+sidecar/bin/
+sidecar/obj/
+.vscode-test/
