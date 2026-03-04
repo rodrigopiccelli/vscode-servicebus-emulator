@@ -9,6 +9,7 @@
     "url": "https://github.com/rodrigopiccelli/vscode-servicebus-emulator"
   },
   "license": "MIT",
+  "icon": "media/extension_icon.png",
   "engines": {
     "vscode": "^1.85.0"
   },
