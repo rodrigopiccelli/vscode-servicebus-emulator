@@ -160,9 +160,7 @@ export class ServiceBusTreeProvider implements vscode.TreeDataProvider<ServiceBu
             new ServiceBusTreeItem(
               t.name,
               'topic',
-              t.subscriptionCount > 0
-                ? vscode.TreeItemCollapsibleState.Collapsed
-                : vscode.TreeItemCollapsibleState.None,
+              vscode.TreeItemCollapsibleState.Collapsed,
               element.connectionName,
               t
             )

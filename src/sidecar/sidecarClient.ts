@@ -184,6 +184,22 @@ export class SidecarClient {
     });
   }
 
+  async createQueue(connectionName: string, queueName: string): Promise<{ ok: boolean; name: string }> {
+    return this.invoke('createQueue', { connectionName, queueName });
+  }
+
+  async createTopic(connectionName: string, topicName: string): Promise<{ ok: boolean; name: string }> {
+    return this.invoke('createTopic', { connectionName, topicName });
+  }
+
+  async createSubscription(
+    connectionName: string,
+    topicName: string,
+    subscriptionName: string
+  ): Promise<{ ok: boolean; topicName: string; subscriptionName: string }> {
+    return this.invoke('createSubscription', { connectionName, topicName, subscriptionName });
+  }
+
   async ping(): Promise<{ ok: boolean }> {
     return this.invoke('ping');
   }

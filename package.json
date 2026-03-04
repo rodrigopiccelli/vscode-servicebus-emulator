@@ -84,6 +84,24 @@
         "title": "Refresh",
         "icon": "$(refresh)",
         "category": "Service Bus Emulator"
+      },
+      {
+        "command": "serviceBusEmulator.createQueue",
+        "title": "Create Queue",
+        "icon": "$(add)",
+        "category": "Service Bus Emulator"
+      },
+      {
+        "command": "serviceBusEmulator.createTopic",
+        "title": "Create Topic",
+        "icon": "$(add)",
+        "category": "Service Bus Emulator"
+      },
+      {
+        "command": "serviceBusEmulator.createSubscription",
+        "title": "Create Subscription",
+        "icon": "$(add)",
+        "category": "Service Bus Emulator"
       }
     ],
     "menus": {
@@ -112,6 +130,21 @@
         {
           "command": "serviceBusEmulator.editConnection",
           "when": "view == serviceBusExplorer && viewItem == connection"
+        },
+        {
+          "command": "serviceBusEmulator.createQueue",
+          "when": "view == serviceBusExplorer && viewItem == queuesFolder",
+          "group": "inline"
+        },
+        {
+          "command": "serviceBusEmulator.createTopic",
+          "when": "view == serviceBusExplorer && viewItem == topicsFolder",
+          "group": "inline"
+        },
+        {
+          "command": "serviceBusEmulator.createSubscription",
+          "when": "view == serviceBusExplorer && viewItem == topic",
+          "group": "inline@3"
         },
         {
           "command": "serviceBusEmulator.peekMessages",

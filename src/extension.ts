@@ -7,6 +7,7 @@ import { registerPeekCommand } from './commands/peekMessages';
 import { registerSendCommand } from './commands/sendMessage';
 import { registerConnectionCommands } from './commands/manageConnections';
 import { registerPurgeCommand } from './commands/purgeMessages';
+import { registerCreateCommands } from './commands/createEntity';
 import { MessageListPanel } from './views/messageListPanel';
 import { SendMessagePanel } from './views/sendMessagePanel';
 
@@ -72,6 +73,7 @@ async function startSidecar(context: vscode.ExtensionContext): Promise<void> {
   registerPeekCommand(context, sidecarClient);
   registerSendCommand(context, sidecarClient);
   registerPurgeCommand(context, sidecarClient, treeProvider);
+  registerCreateCommands(context, sidecarClient, treeProvider);
 
   // Refresh individual entity (queue, subscription, topic, connection)
   context.subscriptions.push(
