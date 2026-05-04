@@ -45,17 +45,11 @@ public class ServiceBusAdminService
         var connectionName = GetConnectionName(paramsElement);
         var queues = new List<QueueInfo>();
 
-        // Collect queue names from admin API
-        var queueNames = new List<string>();
-        await foreach (var props in client.GetQueuesRuntimePropertiesAsync())
+        // Use queue properties for metadata like RequiresSession.
+        // Runtime properties from the emulator return inaccurate counts, so counts still come from AMQP peek.
+        await foreach (var props in client.GetQueuesAsync())
         {
-            queueNames.Add(props.Name);
-        }
-
-        // Use AMQP peek to get accurate message counts
-        // (the emulator's admin HTTP API always returns zeros)
-        foreach (var name in queueNames)
-        {
+            var name = props.Name;
             var (active, deadLetter) = _messagingService != null
                 ? await _messagingService.CountMessagesAsync(connectionName, name)
                 : (0, 0);
@@ -67,7 +61,8 @@ public class ServiceBusAdminService
                 DeadLetterMessageCount = deadLetter,
                 ScheduledMessageCount = 0,
                 TotalMessageCount = active + deadLetter,
-                SizeInBytes = 0
+                SizeInBytes = 0,
+                RequiresSession = props.RequiresSession
             });
         }
 
@@ -131,8 +126,14 @@ public class ServiceBusAdminService
     {
         var client = GetClient(paramsElement);
         var queueName = paramsElement!.Value.GetProperty("queueName").GetString()!;
-        await client.CreateQueueAsync(queueName);
-        return new { ok = true, name = queueName };
+        var requiresSession = paramsElement.Value.TryGetProperty("requiresSession", out var rs) && rs.GetBoolean();
+
+        await client.CreateQueueAsync(new CreateQueueOptions(queueName)
+        {
+            RequiresSession = requiresSession
+        });
+
+        return new { ok = true, name = queueName, requiresSession };
     }
 
     public async Task<object> CreateTopicAsync(JsonElement? paramsElement)
@@ -154,6 +155,7 @@ public class ServiceBusAdminService
 
     public async Task<object> GetQueueRuntimeAsync(JsonElement? paramsElement)
     {
+        var client = GetClient(paramsElement);
         var connectionName = GetConnectionName(paramsElement);
         var queueName = paramsElement!.Value.GetProperty("queueName").GetString()!;
 
@@ -168,7 +170,8 @@ public class ServiceBusAdminService
             DeadLetterMessageCount = deadLetter,
             ScheduledMessageCount = 0,
             TotalMessageCount = active + deadLetter,
-            SizeInBytes = 0
+            SizeInBytes = 0,
+            RequiresSession = (await client.GetQueueAsync(queueName)).Value.RequiresSession
         };
     }
 

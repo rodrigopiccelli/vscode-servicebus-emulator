@@ -147,6 +147,7 @@ export class SidecarClient {
       contentType?: string;
       subject?: string;
       correlationId?: string;
+      sessionId?: string;
       applicationProperties?: Record<string, string>;
     }
   ): Promise<{ ok: boolean }> {
@@ -184,8 +185,12 @@ export class SidecarClient {
     });
   }
 
-  async createQueue(connectionName: string, queueName: string): Promise<{ ok: boolean; name: string }> {
-    return this.invoke('createQueue', { connectionName, queueName });
+  async createQueue(
+    connectionName: string,
+    queueName: string,
+    requiresSession = false
+  ): Promise<{ ok: boolean; name: string; requiresSession: boolean }> {
+    return this.invoke('createQueue', { connectionName, queueName, requiresSession });
   }
 
   async createTopic(connectionName: string, topicName: string): Promise<{ ok: boolean; name: string }> {

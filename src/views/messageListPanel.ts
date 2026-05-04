@@ -190,6 +190,7 @@ export class MessageListPanel {
             </div>
             <div class="detail-meta">
               <span><strong>Correlation ID:</strong> ${escapeHtml(m.correlationId ?? 'N/A')}</span>
+              <span><strong>Session ID:</strong> ${escapeHtml(m.sessionId ?? 'N/A')}</span>
               <span><strong>Delivery Count:</strong> ${m.deliveryCount}</span>
               <span><strong>Expires:</strong> ${formatDate(m.expiresAt)}</span>
             </div>

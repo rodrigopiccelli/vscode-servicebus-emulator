@@ -11,13 +11,14 @@ export class SendMessagePanel {
     _extensionUri: vscode.Uri,
     connectionName: string,
     entityPath: string,
-    client: SidecarClient
+    client: SidecarClient,
+    requiresSession: boolean
   ): void {
     const column = vscode.ViewColumn.Beside;
 
     if (SendMessagePanel.currentPanel) {
       SendMessagePanel.currentPanel.panel.reveal(column);
-      SendMessagePanel.currentPanel.updateEntity(connectionName, entityPath);
+      SendMessagePanel.currentPanel.updateEntity(connectionName, entityPath, requiresSession);
       return;
     }
 
@@ -28,14 +29,21 @@ export class SendMessagePanel {
       { enableScripts: true }
     );
 
-    SendMessagePanel.currentPanel = new SendMessagePanel(panel, connectionName, entityPath, client);
+    SendMessagePanel.currentPanel = new SendMessagePanel(
+      panel,
+      connectionName,
+      entityPath,
+      client,
+      requiresSession
+    );
   }
 
   private constructor(
     panel: vscode.WebviewPanel,
     private connectionName: string,
     private entityPath: string,
-    private client: SidecarClient
+    private client: SidecarClient,
+    private requiresSession: boolean
   ) {
     this.panel = panel;
     this.panel.webview.html = this.getHtml();
@@ -54,10 +62,17 @@ export class SendMessagePanel {
               }
             }
 
+            const sessionId = typeof msg.sessionId === 'string' ? msg.sessionId.trim() : '';
+            if (this.requiresSession && !sessionId) {
+              vscode.window.showErrorMessage('Session ID is required for this queue');
+              return;
+            }
+
             await this.client.sendMessage(this.connectionName, this.entityPath, msg.body, {
               contentType: msg.contentType || undefined,
               subject: msg.subject || undefined,
               correlationId: msg.correlationId || undefined,
+              sessionId: sessionId || undefined,
               applicationProperties: appProps,
             });
 
@@ -80,9 +95,10 @@ export class SendMessagePanel {
     });
   }
 
-  updateEntity(connectionName: string, entityPath: string): void {
+  updateEntity(connectionName: string, entityPath: string, requiresSession: boolean): void {
     this.connectionName = connectionName;
     this.entityPath = entityPath;
+    this.requiresSession = requiresSession;
     this.panel.title = `Send to: ${entityPath}`;
     this.panel.webview.html = this.getHtml();
   }
@@ -146,6 +162,9 @@ export class SendMessagePanel {
   <label>Correlation ID (optional)</label>
   <input type="text" id="correlationId" />
 
+  <label>Session ID${this.requiresSession ? '' : ' (optional)'}</label>
+  <input type="text" id="sessionId" ${this.requiresSession ? 'required' : ''} />
+
   <label>Application Properties (JSON, optional)</label>
   <textarea id="appProps" rows="3">{}</textarea>
 
@@ -173,6 +192,7 @@ export class SendMessagePanel {
         contentType: document.getElementById('contentType').value,
         subject: document.getElementById('subject').value,
         correlationId: document.getElementById('correlationId').value,
+        sessionId: document.getElementById('sessionId').value,
         applicationProperties: document.getElementById('appProps').value,
       });
     }

@@ -2,7 +2,6 @@ import * as vscode from 'vscode';
 import { SidecarClient } from '../sidecar/sidecarClient';
 import { ConnectionStore } from '../models/connectionStore';
 import { ServiceBusTreeProvider, ServiceBusTreeItem } from '../providers/serviceBusTreeProvider';
-import { ConnectionConfig } from '../sidecar/protocol';
 
 const DEFAULT_CONN_STR = 'Endpoint=sb://localhost;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;';
 const DEFAULT_ADMIN_CONN_STR = 'Endpoint=sb://localhost:5300;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;';
@@ -33,6 +32,7 @@ export function registerConnectionCommands(
         prompt: 'Connection string for messaging (AMQP)',
         value: DEFAULT_CONN_STR,
         ignoreFocusOut: true,
+        password: true,
       });
       if (!connectionString) return;
 
@@ -41,28 +41,24 @@ export function registerConnectionCommands(
         prompt: 'Connection string for administration (HTTP)',
         value: DEFAULT_ADMIN_CONN_STR,
         ignoreFocusOut: true,
+        password: true,
       });
       if (!adminConnectionString) return;
 
-      const connection: ConnectionConfig = {
-        name: name.trim(),
-        connectionString,
-        adminConnectionString,
-      };
-
-      await connectionStore.add(connection);
+      const connectionName = name.trim();
+      await connectionStore.add(connectionName, { connectionString, adminConnectionString });
 
       const client = getClient();
       if (client) {
         try {
-          await client.addConnection(connection.name, connection.connectionString, connection.adminConnectionString);
+          await client.addConnection(connectionName, connectionString, adminConnectionString);
         } catch (err) {
           vscode.window.showWarningMessage(`Connection saved but sidecar registration failed: ${err}`);
         }
       }
 
       treeProvider.refresh();
-      vscode.window.showInformationMessage(`Connection '${connection.name}' added`);
+      vscode.window.showInformationMessage(`Connection '${connectionName}' added`);
     })
   );
 
@@ -86,7 +82,7 @@ export function registerConnectionCommands(
         connName = picked;
       }
 
-      const existing = connectionStore.get(connName);
+      const existing = await connectionStore.getResolved(connName);
       if (!existing) return;
 
       const connectionString = await vscode.window.showInputBox({
@@ -94,6 +90,7 @@ export function registerConnectionCommands(
         prompt: 'Connection string for messaging (AMQP)',
         value: existing.connectionString,
         ignoreFocusOut: true,
+        password: true,
       });
       if (!connectionString) return;
 
@@ -102,22 +99,17 @@ export function registerConnectionCommands(
         prompt: 'Connection string for administration (HTTP)',
         value: existing.adminConnectionString,
         ignoreFocusOut: true,
+        password: true,
       });
       if (!adminConnectionString) return;
 
-      const updated: ConnectionConfig = {
-        name: connName,
-        connectionString,
-        adminConnectionString,
-      };
-
-      await connectionStore.add(updated);
+      await connectionStore.add(connName, { connectionString, adminConnectionString });
 
       const client = getClient();
       if (client) {
         try {
           await client.removeConnection(connName);
-          await client.addConnection(updated.name, updated.connectionString, updated.adminConnectionString);
+          await client.addConnection(connName, connectionString, adminConnectionString);
         } catch (err) {
           vscode.window.showWarningMessage(`Connection updated but sidecar re-registration failed: ${err}`);
         }

@@ -22,6 +22,9 @@ public class QueueInfo
     [JsonPropertyName("sizeInBytes")]
     public long SizeInBytes { get; set; }
 
+    [JsonPropertyName("requiresSession")]
+    public bool RequiresSession { get; set; }
+
     [JsonPropertyName("status")]
     public string Status { get; set; } = "";
 }
@@ -87,6 +90,9 @@ public class PeekedMessageInfo
 
     [JsonPropertyName("correlationId")]
     public string? CorrelationId { get; set; }
+
+    [JsonPropertyName("sessionId")]
+    public string? SessionId { get; set; }
 
     [JsonPropertyName("body")]
     public string Body { get; set; } = "";
