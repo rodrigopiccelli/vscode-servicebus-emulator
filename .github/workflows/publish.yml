@@ -19,52 +19,61 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Ensure 'skip update' label exists
+      - name: Ensure release labels exist
         uses: actions/github-script@v7
         with:
           script: |
-            try {
-              await github.rest.issues.getLabel({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                name: 'skip update',
-              });
-            } catch (e) {
-              if (e.status === 404) {
-                await github.rest.issues.createLabel({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  name: 'skip update',
-                  color: 'e4e669',
-                  description: 'Merge without publishing a new version to the Marketplace',
-                });
+            const labels = [
+              { name: 'skip update',    color: 'e4e669', description: 'Merge without publishing a new version to the Marketplace' },
+              { name: 'minor release',  color: '0075ca', description: 'Bump minor version on publish (x.Y.0)' },
+              { name: 'major release',  color: 'd93f0b', description: 'Bump major version on publish (X.0.0)' },
+            ];
+            for (const label of labels) {
+              try {
+                await github.rest.issues.getLabel({ owner: context.repo.owner, repo: context.repo.repo, name: label.name });
+              } catch (e) {
+                if (e.status === 404) {
+                  await github.rest.issues.createLabel({ owner: context.repo.owner, repo: context.repo.repo, ...label });
+                }
               }
             }
 
-      - name: Check for skip label on merged PR
+      - name: Detect release type from merged PR labels
         id: check-skip
         uses: actions/github-script@v7
         with:
           script: |
-            // Skip if commit message already carries [skip release] (e.g. the version-bump commit itself)
+            // Skip if commit message carries [skip release] (e.g. the version-bump commit itself)
             const msg = context.payload.head_commit?.message ?? '';
             if (msg.includes('[skip release]')) {
               core.setOutput('skip', 'true');
+              core.setOutput('bump', 'patch');
               core.info('Skipping: commit message contains [skip release]');
               return;
             }
 
-            // Skip if the merged PR has the 'skip update' label
             const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
               owner: context.repo.owner,
               repo: context.repo.repo,
               commit_sha: context.sha,
             });
-            const hasSkipLabel = prs.some(pr =>
-              pr.labels.some(l => l.name === 'skip update')
-            );
-            core.setOutput('skip', hasSkipLabel ? 'true' : 'false');
-            if (hasSkipLabel) core.info('Skipping: merged PR has the "skip update" label');
+
+            const labels = prs.flatMap(pr => pr.labels.map(l => l.name));
+
+            if (labels.includes('skip update')) {
+              core.setOutput('skip', 'true');
+              core.setOutput('bump', 'patch');
+              core.info('Skipping: merged PR has the "skip update" label');
+              return;
+            }
+
+            const bump = labels.includes('major release') ? 'major'
+                       : labels.includes('minor release') ? 'minor'
+                       : 'patch';
+
+            core.setOutput('skip', 'false');
+            core.setOutput('bump', bump);
+            core.info(`Bump type: ${bump}`);
 
       - name: Setup Node.js
         if: steps.check-skip.outputs.skip != 'true'
@@ -86,13 +95,13 @@ jobs:
         if: steps.check-skip.outputs.skip != 'true'
         run: dotnet publish sidecar/ServiceBusEmulatorSidecar.csproj -c Release -o sidecar/bin
 
-      - name: Bump patch version
+      - name: Bump version
         if: steps.check-skip.outputs.skip != 'true'
         id: version
         run: |
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
-          npm version patch --no-git-tag-version
+          npm version ${{ steps.check-skip.outputs.bump }} --no-git-tag-version
           VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
