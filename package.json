@@ -218,15 +218,15 @@
     "package": "npx mkdirp out && npx @vscode/vsce package -o out/servicebus-emulator-explorer.vsix"
   },
   "devDependencies": {
-    "@types/node": "^20.11.0",
-    "@types/vscode": "^1.85.0",
+    "@types/node": "^20.19.43",
+    "@types/vscode": "^1.125.0",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
-    "@vscode/vsce": "^3.7.1",
+    "@vscode/vsce": "^3.9.2",
     "eslint": "^8.56.0",
-    "ts-loader": "^9.5.0",
+    "ts-loader": "^9.6.2",
     "typescript": "^5.3.0",
-    "webpack": "^5.89.0",
+    "webpack": "^5.109.2",
     "webpack-cli": "^5.1.0"
   }
 }
