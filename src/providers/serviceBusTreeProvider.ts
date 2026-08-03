@@ -31,7 +31,7 @@ export class ServiceBusTreeItem extends vscode.TreeItem {
           `Messaging Host: ${cfg.endpointHost || 'Unknown'}\n\n` +
           `Admin Host: ${cfg.adminEndpointHost || 'Unknown'}`
         );
-        this.description = cfg.endpointHost;
+        this.description = cfg.endpointHost || undefined;
         break;
       }
       case 'queuesFolder':
