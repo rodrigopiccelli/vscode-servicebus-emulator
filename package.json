@@ -11,7 +11,7 @@
   "license": "MIT",
   "icon": "media/extension_icon.png",
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.125.0"
   },
   "categories": [
     "Other"
