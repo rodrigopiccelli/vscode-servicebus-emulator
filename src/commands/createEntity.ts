@@ -25,9 +25,22 @@ export function registerCreateCommands(
       });
       if (!queueName) return;
 
+      const sessionChoice = await vscode.window.showQuickPick(
+        [
+          { label: 'Standard queue', requiresSession: false },
+          { label: 'Session-enabled queue', requiresSession: true },
+        ],
+        {
+          title: `Queue Type for '${queueName.trim()}'`,
+          placeHolder: 'Choose whether the queue requires sessions',
+        }
+      );
+      if (!sessionChoice) return;
+
       try {
-        await client.createQueue(connectionName, queueName.trim());
-        vscode.window.showInformationMessage(`Queue '${queueName.trim()}' created`);
+        await client.createQueue(connectionName, queueName.trim(), sessionChoice.requiresSession);
+        const sessionLabel = sessionChoice.requiresSession ? ' with sessions enabled' : '';
+        vscode.window.showInformationMessage(`Queue '${queueName.trim()}' created${sessionLabel}`);
         treeProvider.refresh();
       } catch (err) {
         vscode.window.showErrorMessage(`Failed to create queue: ${err}`);

@@ -14,8 +14,16 @@ export interface JsonRpcResponse {
 // Stored connection definition
 export interface ConnectionConfig {
   name: string;
+  endpointHost: string;
+  adminEndpointHost: string;
+}
+
+export interface ConnectionSecrets {
   connectionString: string;
   adminConnectionString: string;
+}
+
+export interface ResolvedConnectionConfig extends ConnectionConfig, ConnectionSecrets {
 }
 
 // Domain types matching sidecar output
@@ -27,6 +35,7 @@ export interface QueueInfo {
   scheduledMessageCount: number;
   totalMessageCount: number;
   sizeInBytes: number;
+  requiresSession: boolean;
 }
 
 export interface TopicInfo {
@@ -52,6 +61,7 @@ export interface PeekedMessage {
   contentType: string;
   subject: string | null;
   correlationId: string | null;
+  sessionId: string | null;
   body: string;
   applicationProperties: Record<string, string>;
   deliveryCount: number;

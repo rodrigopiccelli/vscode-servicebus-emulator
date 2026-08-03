@@ -102,6 +102,8 @@ public class ServiceBusMessagingService
             message.Subject = subject;
         if (paramsElement.Value.TryGetProperty("correlationId", out var cid) && cid.GetString() is string correlationId)
             message.CorrelationId = correlationId;
+        if (paramsElement.Value.TryGetProperty("sessionId", out var sid) && sid.GetString() is string sessionId)
+            message.SessionId = sessionId;
         if (paramsElement.Value.TryGetProperty("applicationProperties", out var props) &&
             props.ValueKind == JsonValueKind.Object)
         {
@@ -250,6 +252,7 @@ public class ServiceBusMessagingService
             ContentType = m.ContentType ?? "",
             Subject = m.Subject,
             CorrelationId = m.CorrelationId,
+            SessionId = m.SessionId,
             Body = m.Body.ToString(),
             ApplicationProperties = m.ApplicationProperties
                 .ToDictionary(kv => kv.Key, kv => kv.Value?.ToString() ?? ""),

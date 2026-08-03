@@ -28,10 +28,10 @@ export class ServiceBusTreeItem extends vscode.TreeItem {
         const cfg = metadata as ConnectionConfig;
         this.tooltip = new vscode.MarkdownString(
           `**${cfg.name}**\n\n` +
-          `Messaging: \`${truncateConnStr(cfg.connectionString)}\`\n\n` +
-          `Admin: \`${truncateConnStr(cfg.adminConnectionString)}\``
+          `Messaging Host: ${cfg.endpointHost || 'Unknown'}\n\n` +
+          `Admin Host: ${cfg.adminEndpointHost || 'Unknown'}`
         );
-        this.description = extractHost(cfg.connectionString);
+        this.description = cfg.endpointHost;
         break;
       }
       case 'queuesFolder':
@@ -43,12 +43,14 @@ export class ServiceBusTreeItem extends vscode.TreeItem {
       case 'queue': {
         const q = metadata as QueueInfo;
         this.iconPath = new vscode.ThemeIcon('inbox');
-        this.description = `${q.activeMessageCount} active, ${q.deadLetterMessageCount} DLQ`;
+        const sessionLabel = q.requiresSession ? ', sessions required' : '';
+        this.description = `${q.activeMessageCount} active, ${q.deadLetterMessageCount} DLQ${sessionLabel}`;
         this.tooltip = new vscode.MarkdownString(
           `**${q.name}**\n\n` +
           `Active: ${q.activeMessageCount}\n\n` +
           `Dead Letter: ${q.deadLetterMessageCount}\n\n` +
           `Scheduled: ${q.scheduledMessageCount}\n\n` +
+          `Requires Sessions: ${q.requiresSession ? 'Yes' : 'No'}\n\n` +
           `Size: ${q.sizeInBytes} bytes`
         );
         this.command = {
@@ -187,13 +189,4 @@ export class ServiceBusTreeProvider implements vscode.TreeDataProvider<ServiceBu
 
     return [];
   }
-}
-
-function truncateConnStr(str: string): string {
-  return str.length > 60 ? str.substring(0, 60) + '...' : str;
-}
-
-function extractHost(connStr: string): string {
-  const match = connStr.match(/Endpoint=sb:\/\/([^;/]+)/i);
-  return match ? match[1] : '';
 }

@@ -17,7 +17,8 @@ let treeProvider: ServiceBusTreeProvider;
 let connectionStore: ConnectionStore;
 
 export async function activate(context: vscode.ExtensionContext) {
-  connectionStore = new ConnectionStore(context.globalState);
+  connectionStore = new ConnectionStore(context.globalState, context.secrets);
+  await connectionStore.initialize();
 
   // Create tree provider early (before sidecar starts)
   treeProvider = new ServiceBusTreeProvider(null, connectionStore);
@@ -54,7 +55,7 @@ async function startSidecar(context: vscode.ExtensionContext): Promise<void> {
     treeProvider.setClient(sidecarClient);
 
     // Register all stored connections with the sidecar
-    const connections = connectionStore.getAll();
+    const connections = await connectionStore.getAllResolved();
     for (const conn of connections) {
       try {
         await sidecarClient.addConnection(conn.name, conn.connectionString, conn.adminConnectionString);
