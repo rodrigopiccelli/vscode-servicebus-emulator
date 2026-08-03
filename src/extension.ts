@@ -55,7 +55,17 @@ async function startSidecar(context: vscode.ExtensionContext): Promise<void> {
     treeProvider.setClient(sidecarClient);
 
     // Register all stored connections with the sidecar
+    const allMetadata = connectionStore.getAll();
     const connections = await connectionStore.getAllResolved();
+
+    const missingSecrets = allMetadata.filter((m) => !connections.find((c) => c.name === m.name));
+    if (missingSecrets.length > 0) {
+      vscode.window.showWarningMessage(
+        `Could not load credentials for connection(s): ${missingSecrets.map((c) => `'${c.name}'`).join(', ')}. ` +
+        `Please remove and re-add them.`
+      );
+    }
+
     for (const conn of connections) {
       try {
         await sidecarClient.addConnection(conn.name, conn.connectionString, conn.adminConnectionString);
