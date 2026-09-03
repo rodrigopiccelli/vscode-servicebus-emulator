@@ -149,7 +149,7 @@
         },
         {
           "command": "serviceBusEmulator.peekMessages",
-          "when": "view == serviceBusExplorer && viewItem =~ /^(queue|subscription)$/",
+          "when": "view == serviceBusExplorer && viewItem =~ /^(queue|subscription|deadLetterQueue)$/",
           "group": "inline@1"
         },
         {
@@ -159,12 +159,12 @@
         },
         {
           "command": "serviceBusEmulator.refreshEntity",
-          "when": "view == serviceBusExplorer && viewItem =~ /^(queue|subscription|topic|connection)$/",
+          "when": "view == serviceBusExplorer && viewItem =~ /^(queue|subscription|topic|connection|deadLetterQueue)$/",
           "group": "inline@3"
         },
         {
           "command": "serviceBusEmulator.peekMessages",
-          "when": "view == serviceBusExplorer && viewItem =~ /^(queue|subscription)$/",
+          "when": "view == serviceBusExplorer && viewItem =~ /^(queue|subscription|deadLetterQueue)$/",
           "group": "1_messages@1"
         },
         {
@@ -174,12 +174,12 @@
         },
         {
           "command": "serviceBusEmulator.purgeMessages",
-          "when": "view == serviceBusExplorer && viewItem =~ /^(queue|subscription)$/",
+          "when": "view == serviceBusExplorer && viewItem =~ /^(queue|subscription|deadLetterQueue)$/",
           "group": "2_actions@1"
         },
         {
           "command": "serviceBusEmulator.refreshEntity",
-          "when": "view == serviceBusExplorer && viewItem =~ /^(queue|subscription|topic|connection)$/",
+          "when": "view == serviceBusExplorer && viewItem =~ /^(queue|subscription|topic|connection|deadLetterQueue)$/",
           "group": "3_refresh@1"
         }
       ]

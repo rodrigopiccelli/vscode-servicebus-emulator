@@ -8,8 +8,9 @@ Existing VS Code extensions for Azure Service Bus depend on the management REST 
 
 - **Browse** — Tree view showing connections, queues (with message counts), topics, and subscriptions
 - **Peek Messages** — View messages without consuming them, with expandable JSON body and metadata
+- **Dead-Letter Queues** — Each queue and subscription exposes a **Dead-letter** child node in the tree; opening it reuses the message list panel in dead-letter mode (reason column, DLQ-scoped delete and purge)
 - **Send Messages** — Compose and send test messages with custom body, content type, subject, correlation ID, and application properties
-- **Purge Messages** — Bulk-delete all messages from a queue or subscription
+- **Purge Messages** — Bulk-delete all messages from a queue, subscription, or dead-letter queue
 - **Delete Individual Messages** — Remove specific messages by sequence number
 - **Multiple Connections** — Manage several emulator instances or configurations side by side
 - **Auto-Refresh** — Configurable automatic refresh for both the tree view and message panels
@@ -85,14 +86,14 @@ vscode-servicebus-emulator/
 │   │   ├── sidecarProcess.ts             # Spawn .NET process, wait for ready signal
 │   │   └── sidecarClient.ts              # JSON-RPC client with request correlation
 │   ├── providers/
-│   │   └── serviceBusTreeProvider.ts     # Tree view data provider
+│   │   └── serviceBusTreeProvider.ts     # Tree view data provider, dead-letter nodes, entity target resolution
 │   ├── commands/
 │   │   ├── manageConnections.ts          # Add, edit, remove connections
 │   │   ├── peekMessages.ts              # Open message list webview
 │   │   ├── sendMessage.ts               # Open send message webview
 │   │   └── purgeMessages.ts             # Purge all messages from entity
 │   ├── views/
-│   │   ├── messageListPanel.ts           # Peek messages webview (table, detail, delete, purge)
+│   │   ├── messageListPanel.ts           # Peek messages webview (table, detail, delete, purge; active + dead-letter)
 │   │   └── sendMessagePanel.ts           # Send message form webview
 │   └── models/
 │       └── connectionStore.ts            # Persist connections in VS Code globalState
@@ -125,12 +126,17 @@ vscode-servicebus-emulator/
 | `listSubscriptions` | `{connectionName, topicName}` | `{subscriptions: [...]}` |
 | `getQueueRuntime` | `{connectionName, queueName}` | `{...runtimeProps}` |
 | `getTopicRuntime` | `{connectionName, topicName}` | `{...runtimeProps}` |
-| `peekMessages` | `{connectionName, entityPath, subscriptionName?, maxCount?}` | `{messages: [...]}` |
-| `peekDeadLetterMessages` | `{connectionName, entityPath, subscriptionName?, maxCount?}` | `{messages: [...]}` |
+| `peekMessages` | `{connectionName, entityPath, subscriptionName?, maxCount?, deadLetter?}` | `{messages: [...]}` |
+| `peekDeadLetterMessages` | `{connectionName, entityPath, subscriptionName?, maxCount?}` | `{messages: [...]}` — same as `peekMessages` with `deadLetter: true` |
 | `sendMessage` | `{connectionName, entityPath, body, contentType?, subject?, ...}` | `{ok}` |
-| `deleteMessage` | `{connectionName, entityPath, sequenceNumber, subscriptionName?}` | `{ok, deletedSequenceNumber}` |
-| `purgeMessages` | `{connectionName, entityPath, subscriptionName?}` | `{purgedCount}` |
+| `deleteMessage` | `{connectionName, entityPath, sequenceNumber, subscriptionName?, deadLetter?}` | `{ok, deletedSequenceNumber}` |
+| `purgeMessages` | `{connectionName, entityPath, subscriptionName?, deadLetter?}` | `{purgedCount}` |
 | `shutdown` | `{}` | `{ok}` then exit |
+
+`peekMessages`, `deleteMessage` and `purgeMessages` accept an optional `deadLetter` flag. When `true`,
+the sidecar builds its receiver with `SubQueue.DeadLetter`, so the operation targets the entity's
+dead-letter sub-queue instead of its main queue. `peekDeadLetterMessages` is kept as an alias for the
+flagged peek. `sendMessage` has no such flag — messages cannot be sent directly to a dead-letter queue.
 
 ## Extension Settings
 

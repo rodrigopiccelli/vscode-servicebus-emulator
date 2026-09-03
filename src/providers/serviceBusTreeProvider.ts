@@ -9,7 +9,65 @@ export type TreeItemType =
   | 'topicsFolder'
   | 'queue'
   | 'topic'
-  | 'subscription';
+  | 'subscription'
+  | 'deadLetterQueue';
+
+// Metadata for a dead-letter node, derived from the parent queue or subscription.
+export interface DeadLetterInfo {
+  entityPath: string;
+  subscriptionName?: string;
+  deadLetterMessageCount: number;
+}
+
+// An entity that messaging commands can act on: a queue, a subscription,
+// or the dead-letter sub-queue of either.
+export interface EntityTarget {
+  connectionName: string;
+  entityPath: string;
+  subscriptionName?: string;
+  deadLetter: boolean;
+  // Human-readable entity, e.g. 'orders', 'orders-topic/audit (dead-letter)'
+  entityLabel: string;
+}
+
+// Single place that maps a tree item onto the entity a command should target,
+// so peek, purge and the message panel all treat dead-letter nodes alike.
+export function resolveEntityTarget(item: ServiceBusTreeItem): EntityTarget | undefined {
+  const connectionName = item.connectionName;
+
+  switch (item.itemType) {
+    case 'queue': {
+      const q = item.metadata as QueueInfo;
+      return { connectionName, entityPath: q.name, deadLetter: false, entityLabel: q.name };
+    }
+    case 'subscription': {
+      const s = item.metadata as SubscriptionInfo;
+      return {
+        connectionName,
+        entityPath: s.topicName,
+        subscriptionName: s.subscriptionName,
+        deadLetter: false,
+        entityLabel: `${s.topicName}/${s.subscriptionName}`,
+      };
+    }
+    case 'deadLetterQueue': {
+      const dl = item.metadata as DeadLetterInfo;
+      return {
+        connectionName,
+        entityPath: dl.entityPath,
+        subscriptionName: dl.subscriptionName,
+        deadLetter: true,
+        entityLabel: `${formatEntityPath(dl)} (dead-letter)`,
+      };
+    }
+    default:
+      return undefined;
+  }
+}
+
+function formatEntityPath(dl: DeadLetterInfo): string {
+  return dl.subscriptionName ? `${dl.entityPath}/${dl.subscriptionName}` : dl.entityPath;
+}
 
 export class ServiceBusTreeItem extends vscode.TreeItem {
   constructor(
@@ -17,7 +75,7 @@ export class ServiceBusTreeItem extends vscode.TreeItem {
     public readonly itemType: TreeItemType,
     public readonly collapsibleState: vscode.TreeItemCollapsibleState,
     public readonly connectionName: string,
-    public readonly metadata?: QueueInfo | TopicInfo | SubscriptionInfo | ConnectionConfig
+    public readonly metadata?: QueueInfo | TopicInfo | SubscriptionInfo | ConnectionConfig | DeadLetterInfo
   ) {
     super(label, collapsibleState);
     this.contextValue = itemType;
@@ -88,6 +146,24 @@ export class ServiceBusTreeItem extends vscode.TreeItem {
         };
         break;
       }
+      case 'deadLetterQueue': {
+        const dl = metadata as DeadLetterInfo;
+        this.iconPath = new vscode.ThemeIcon(
+          'error',
+          dl.deadLetterMessageCount > 0 ? new vscode.ThemeColor('list.errorForeground') : undefined
+        );
+        this.description = `${dl.deadLetterMessageCount} message(s)`;
+        this.tooltip = new vscode.MarkdownString(
+          `**Dead-letter queue** — ${formatEntityPath(dl)}\n\n` +
+          `Messages: ${dl.deadLetterMessageCount}`
+        );
+        this.command = {
+          command: 'serviceBusEmulator.peekMessages',
+          title: 'Peek Dead-Letter Messages',
+          arguments: [this],
+        };
+        break;
+      }
     }
   }
 }
@@ -145,13 +221,31 @@ export class ServiceBusTreeProvider implements vscode.TreeDataProvider<ServiceBu
       ];
     }
 
+    // Dead-letter counts come from the parent's already-fetched metadata, so no extra call is needed
+    if (element.itemType === 'queue') {
+      const q = element.metadata as QueueInfo;
+      return [deadLetterItem(element.connectionName, {
+        entityPath: q.name,
+        deadLetterMessageCount: q.deadLetterMessageCount,
+      })];
+    }
+
+    if (element.itemType === 'subscription') {
+      const s = element.metadata as SubscriptionInfo;
+      return [deadLetterItem(element.connectionName, {
+        entityPath: s.topicName,
+        subscriptionName: s.subscriptionName,
+        deadLetterMessageCount: s.deadLetterMessageCount,
+      })];
+    }
+
     if (!this.client) return [];
 
     try {
       if (element.itemType === 'queuesFolder') {
         const result = await this.client.listQueues(element.connectionName);
         return result.queues.map(
-          (q) => new ServiceBusTreeItem(q.name, 'queue', vscode.TreeItemCollapsibleState.None, element.connectionName, q)
+          (q) => new ServiceBusTreeItem(q.name, 'queue', vscode.TreeItemCollapsibleState.Collapsed, element.connectionName, q)
         );
       }
 
@@ -177,7 +271,7 @@ export class ServiceBusTreeProvider implements vscode.TreeDataProvider<ServiceBu
             new ServiceBusTreeItem(
               s.subscriptionName,
               'subscription',
-              vscode.TreeItemCollapsibleState.None,
+              vscode.TreeItemCollapsibleState.Collapsed,
               element.connectionName,
               s
             )
@@ -189,4 +283,14 @@ export class ServiceBusTreeProvider implements vscode.TreeDataProvider<ServiceBu
 
     return [];
   }
+}
+
+function deadLetterItem(connectionName: string, info: DeadLetterInfo): ServiceBusTreeItem {
+  return new ServiceBusTreeItem(
+    'Dead-letter',
+    'deadLetterQueue',
+    vscode.TreeItemCollapsibleState.None,
+    connectionName,
+    info
+  );
 }

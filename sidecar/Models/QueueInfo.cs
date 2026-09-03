@@ -105,4 +105,10 @@ public class PeekedMessageInfo
 
     [JsonPropertyName("state")]
     public string State { get; set; } = "";
+
+    [JsonPropertyName("deadLetterReason")]
+    public string? DeadLetterReason { get; set; }
+
+    [JsonPropertyName("deadLetterErrorDescription")]
+    public string? DeadLetterErrorDescription { get; set; }
 }

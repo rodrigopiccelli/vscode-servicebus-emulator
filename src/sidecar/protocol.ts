@@ -66,4 +66,6 @@ export interface PeekedMessage {
   applicationProperties: Record<string, string>;
   deliveryCount: number;
   state: string;
+  deadLetterReason: string | null;
+  deadLetterErrorDescription: string | null;
 }
