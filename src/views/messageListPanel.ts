@@ -27,11 +27,13 @@ export class MessageListPanel {
     client: SidecarClient,
     context: PeekContext
   ): void {
-    const column = vscode.ViewColumn.Beside;
+    // Open in the group the user is already in; reveal() without a column leaves an
+    // existing panel where the user put it instead of yanking it to another group.
+    const column = vscode.ViewColumn.Active;
 
     const existing = MessageListPanel.currentPanels.get(displayName);
     if (existing) {
-      existing.panel.reveal(column);
+      existing.panel.reveal();
       existing.update(messages);
       return;
     }
