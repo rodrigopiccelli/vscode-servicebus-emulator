@@ -2,10 +2,13 @@ import * as vscode from 'vscode';
 import { PeekedMessage } from '../sidecar/protocol';
 import { SidecarClient } from '../sidecar/sidecarClient';
 
+// Structurally compatible with EntityTarget from the tree provider.
 export interface PeekContext {
   connectionName: string;
   entityPath: string;
   subscriptionName?: string;
+  deadLetter: boolean;
+  entityLabel: string;
 }
 
 export class MessageListPanel {
@@ -24,11 +27,13 @@ export class MessageListPanel {
     client: SidecarClient,
     context: PeekContext
   ): void {
-    const column = vscode.ViewColumn.Beside;
+    // Open in the group the user is already in; reveal() without a column leaves an
+    // existing panel where the user put it instead of yanking it to another group.
+    const column = vscode.ViewColumn.Active;
 
     const existing = MessageListPanel.currentPanels.get(displayName);
     if (existing) {
-      existing.panel.reveal(column);
+      existing.panel.reveal();
       existing.update(messages);
       return;
     }
@@ -94,7 +99,8 @@ export class MessageListPanel {
         this.context.connectionName,
         this.context.entityPath,
         sequenceNumber,
-        this.context.subscriptionName
+        this.context.subscriptionName,
+        this.context.deadLetter
       );
       await this.refreshMessages();
       MessageListPanel.onTreeRefreshNeeded?.();
@@ -104,9 +110,7 @@ export class MessageListPanel {
   }
 
   private async purgeMessages(): Promise<void> {
-    const entity = this.context.subscriptionName
-      ? `${this.context.entityPath}/${this.context.subscriptionName}`
-      : this.context.entityPath;
+    const entity = this.context.entityLabel;
 
     const confirm = await vscode.window.showWarningMessage(
       `Purge ALL messages from ${entity}?`,
@@ -119,7 +123,8 @@ export class MessageListPanel {
       await this.client.purgeMessages(
         this.context.connectionName,
         this.context.entityPath,
-        this.context.subscriptionName
+        this.context.subscriptionName,
+        this.context.deadLetter
       );
       vscode.window.showInformationMessage(`Purged all messages from ${entity}`);
       await this.refreshMessages();
@@ -133,12 +138,7 @@ export class MessageListPanel {
     try {
       const config = vscode.workspace.getConfiguration('serviceBusEmulator');
       const maxCount = config.get<number>('peekMessageCount', 25);
-      const result = await this.client.peekMessages(
-        this.context.connectionName,
-        this.context.entityPath,
-        this.context.subscriptionName,
-        maxCount
-      );
+      const result = await this.client.peekEntityMessages(this.context, maxCount);
       this.update(result.messages);
       MessageListPanel.onTreeRefreshNeeded?.();
     } catch (err) {
@@ -166,6 +166,11 @@ export class MessageListPanel {
   }
 
   private getHtml(messages: PeekedMessage[]): string {
+    // The dead-letter view swaps the State column (always "Active" on a DLQ)
+    // for the dead-letter reason, so the column count is unchanged.
+    const isDlq = this.context.deadLetter;
+    const columnCount = 7;
+
     const rows = messages
       .map(
         (m, i) => `
@@ -175,11 +180,22 @@ export class MessageListPanel {
           <td>${formatDate(m.enqueuedTime)}</td>
           <td>${escapeHtml(m.contentType)}</td>
           <td>${escapeHtml(m.subject ?? '')}</td>
-          <td>${escapeHtml(m.state)}</td>
+          ${isDlq
+            ? `<td title="${escapeAttr(m.deadLetterErrorDescription ?? '')}">${escapeHtml(m.deadLetterReason ?? '')}</td>`
+            : `<td>${escapeHtml(m.state)}</td>`}
           <td class="actions-cell"><button class="delete-btn" onclick="deleteMessage(event, ${m.sequenceNumber})" title="Delete message">&#x2715;</button></td>
         </tr>
         <tr class="detail-row" id="detail-${i}" style="display:none">
-          <td colspan="7">
+          <td colspan="${columnCount}">
+            ${isDlq ? `
+            <div class="detail-section">
+              <strong>Dead-Letter Reason:</strong>
+              <pre>${escapeHtml(m.deadLetterReason ?? 'N/A')}</pre>
+            </div>
+            <div class="detail-section">
+              <strong>Dead-Letter Description:</strong>
+              <pre>${escapeHtml(m.deadLetterErrorDescription ?? 'N/A')}</pre>
+            </div>` : ''}
             <div class="detail-section">
               <strong>Body:</strong>
               <pre>${escapeHtml(tryFormatJson(m.body))}</pre>
@@ -200,7 +216,7 @@ export class MessageListPanel {
       .join('');
 
     const emptyMessage = messages.length === 0
-      ? '<p class="empty">No messages found in this entity.</p>'
+      ? `<p class="empty">No ${isDlq ? 'dead-letter ' : ''}messages found in this entity.</p>`
       : '';
 
     return `<!DOCTYPE html>
@@ -216,6 +232,19 @@ export class MessageListPanel {
     }
     h2 { margin-top: 0; display: inline; }
     .count { color: var(--vscode-descriptionForeground); font-weight: normal; }
+    .dlq-badge {
+      display: inline-block;
+      margin-left: 8px;
+      padding: 1px 6px;
+      border: 1px solid var(--vscode-errorForeground);
+      border-radius: 3px;
+      color: var(--vscode-errorForeground);
+      font-size: 11px;
+      font-weight: normal;
+      vertical-align: middle;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
     .toolbar {
       display: flex;
       align-items: center;
@@ -299,7 +328,7 @@ export class MessageListPanel {
 </head>
 <body>
   <div class="toolbar">
-    <h2>${escapeHtml(this.displayName)} <span class="count">(${messages.length} messages)</span></h2>
+    <h2>${escapeHtml(this.displayName)} <span class="count">(${messages.length} messages)</span>${isDlq ? '<span class="dlq-badge">Dead-letter</span>' : ''}</h2>
     <div class="toolbar-right">
       <span class="last-refresh" id="lastRefresh">Updated: ${new Date().toLocaleTimeString()}</span>
       <label for="autoRefresh">Auto:</label>
@@ -323,7 +352,7 @@ export class MessageListPanel {
         <th>Enqueued</th>
         <th>Content Type</th>
         <th>Subject</th>
-        <th>State</th>
+        <th>${isDlq ? 'Reason' : 'State'}</th>
         <th></th>
       </tr>
     </thead>

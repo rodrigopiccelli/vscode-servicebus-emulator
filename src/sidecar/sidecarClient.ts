@@ -125,6 +125,17 @@ export class SidecarClient {
     });
   }
 
+  /** Peeks either the entity or its dead-letter sub-queue. */
+  async peekEntityMessages(
+    target: { connectionName: string; entityPath: string; subscriptionName?: string; deadLetter: boolean },
+    maxCount?: number
+  ): Promise<{ messages: PeekedMessage[] }> {
+    const { connectionName, entityPath, subscriptionName, deadLetter } = target;
+    return deadLetter
+      ? this.peekDeadLetterMessages(connectionName, entityPath, subscriptionName, maxCount)
+      : this.peekMessages(connectionName, entityPath, subscriptionName, maxCount);
+  }
+
   async peekDeadLetterMessages(
     connectionName: string,
     entityPath: string,
@@ -162,12 +173,14 @@ export class SidecarClient {
   async purgeMessages(
     connectionName: string,
     entityPath: string,
-    subscriptionName?: string
+    subscriptionName?: string,
+    deadLetter = false
   ): Promise<{ purgedCount: number }> {
     return this.invoke('purgeMessages', {
       connectionName,
       entityPath,
       subscriptionName: subscriptionName ?? '',
+      deadLetter,
     });
   }
 
@@ -175,13 +188,15 @@ export class SidecarClient {
     connectionName: string,
     entityPath: string,
     sequenceNumber: number,
-    subscriptionName?: string
+    subscriptionName?: string,
+    deadLetter = false
   ): Promise<{ ok: boolean; deletedSequenceNumber: number }> {
     return this.invoke('deleteMessage', {
       connectionName,
       entityPath,
       sequenceNumber,
       subscriptionName: subscriptionName ?? '',
+      deadLetter,
     });
   }
 

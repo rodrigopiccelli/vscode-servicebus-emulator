@@ -14,10 +14,12 @@ export class SendMessagePanel {
     client: SidecarClient,
     requiresSession: boolean
   ): void {
-    const column = vscode.ViewColumn.Beside;
+    // Open in the group the user is already in; reveal() without a column leaves an
+    // existing panel where the user put it instead of yanking it to another group.
+    const column = vscode.ViewColumn.Active;
 
     if (SendMessagePanel.currentPanel) {
-      SendMessagePanel.currentPanel.panel.reveal(column);
+      SendMessagePanel.currentPanel.panel.reveal();
       SendMessagePanel.currentPanel.updateEntity(connectionName, entityPath, requiresSession);
       return;
     }

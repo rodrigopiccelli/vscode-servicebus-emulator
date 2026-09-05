@@ -8,8 +8,9 @@ Existing extensions for Azure Service Bus depend on the management REST API, whi
 
 - **Browse entities** — Tree view showing connections, queues (with message counts), topics, and subscriptions
 - **Peek messages** — View messages without consuming them, with expandable JSON body and metadata
+- **Dead-letter queues** — Each queue and subscription has a **Dead-letter** child node in the tree showing its message count; open it to browse dead-lettered messages with their dead-letter reason and description
 - **Send messages** — Compose and send test messages with custom body, content type, subject, correlation ID, and application properties
-- **Purge messages** — Bulk-delete all messages from a queue or subscription
+- **Purge messages** — Bulk-delete all messages from a queue, subscription, or dead-letter queue
 - **Delete individual messages** — Remove specific messages by sequence number
 - **Multiple connections** — Manage several emulator instances or configurations side by side
 - **Auto-refresh** — Configurable automatic refresh for both the tree view and message panels

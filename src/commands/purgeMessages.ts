@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import { SidecarClient } from '../sidecar/sidecarClient';
-import { ServiceBusTreeItem, ServiceBusTreeProvider } from '../providers/serviceBusTreeProvider';
-import { SubscriptionInfo } from '../sidecar/protocol';
+import { ServiceBusTreeItem, ServiceBusTreeProvider, resolveEntityTarget } from '../providers/serviceBusTreeProvider';
 
 export function registerPurgeCommand(
   context: vscode.ExtensionContext,
@@ -12,25 +11,11 @@ export function registerPurgeCommand(
     vscode.commands.registerCommand(
       'serviceBusEmulator.purgeMessages',
       async (item: ServiceBusTreeItem) => {
-        let entityPath: string;
-        let subscriptionName: string | undefined;
-        let displayName: string;
-        const connName = item.connectionName;
-
-        if (item.itemType === 'queue') {
-          entityPath = item.label as string;
-          displayName = entityPath;
-        } else if (item.itemType === 'subscription') {
-          const subMeta = item.metadata as SubscriptionInfo;
-          entityPath = subMeta.topicName;
-          subscriptionName = subMeta.subscriptionName;
-          displayName = `${entityPath}/${subscriptionName}`;
-        } else {
-          return;
-        }
+        const target = resolveEntityTarget(item);
+        if (!target) return;
 
         const confirm = await vscode.window.showWarningMessage(
-          `Purge all messages from '${displayName}' on connection '${connName}'?`,
+          `Purge all messages from '${target.entityLabel}' on connection '${target.connectionName}'?`,
           { modal: true },
           'Purge'
         );
@@ -40,13 +25,19 @@ export function registerPurgeCommand(
           const result = await vscode.window.withProgress(
             {
               location: vscode.ProgressLocation.Notification,
-              title: `Purging messages from ${displayName}...`,
+              title: `Purging messages from ${target.entityLabel}...`,
             },
-            () => client.purgeMessages(connName, entityPath, subscriptionName)
+            () =>
+              client.purgeMessages(
+                target.connectionName,
+                target.entityPath,
+                target.subscriptionName,
+                target.deadLetter
+              )
           );
 
           vscode.window.showInformationMessage(
-            `Purged ${result.purgedCount} message(s) from '${displayName}'`
+            `Purged ${result.purgedCount} message(s) from '${target.entityLabel}'`
           );
           treeProvider.refresh();
         } catch (err) {

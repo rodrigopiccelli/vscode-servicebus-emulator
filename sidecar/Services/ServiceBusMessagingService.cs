@@ -35,57 +35,56 @@ public class ServiceBusMessagingService
             : throw new InvalidOperationException($"Connection '{name}' not found.");
     }
 
-    public async Task<object> PeekMessagesAsync(JsonElement? paramsElement)
+    // Optional 'deadLetter' flag: when set, the operation targets the entity's
+    // dead-letter sub-queue instead of its main queue.
+    private static bool IsDeadLetter(JsonElement? paramsElement)
     {
-        var client = GetClient(paramsElement);
-        var entityPath = paramsElement!.Value.GetProperty("entityPath").GetString()!;
-        var maxCount = paramsElement.Value.TryGetProperty("maxCount", out var mc) ? mc.GetInt32() : 25;
-        var fromSeq = paramsElement.Value.TryGetProperty("fromSequenceNumber", out var fs) ? fs.GetInt64() : 0;
-
-        ServiceBusReceiver receiver;
-        if (paramsElement.Value.TryGetProperty("subscriptionName", out var subName) &&
-            subName.GetString() is string sub && !string.IsNullOrEmpty(sub))
-        {
-            receiver = client.CreateReceiver(entityPath, sub);
-        }
-        else
-        {
-            receiver = client.CreateReceiver(entityPath);
-        }
-
-        await using (receiver)
-        {
-            var messages = fromSeq > 0
-                ? await receiver.PeekMessagesAsync(maxCount, fromSeq)
-                : await receiver.PeekMessagesAsync(maxCount);
-            return new { messages = messages.Select(MapMessage).ToList() };
-        }
+        return paramsElement!.Value.TryGetProperty("deadLetter", out var dl) &&
+               dl.ValueKind == JsonValueKind.True;
     }
 
-    public async Task<object> PeekDeadLetterMessagesAsync(JsonElement? paramsElement)
+    // Creates a receiver for the requested entity, honouring the optional
+    // 'subscriptionName' param and the dead-letter sub-queue.
+    private ServiceBusReceiver CreateReceiver(
+        JsonElement? paramsElement,
+        bool deadLetter,
+        ServiceBusReceiveMode? receiveMode = null)
     {
         var client = GetClient(paramsElement);
         var entityPath = paramsElement!.Value.GetProperty("entityPath").GetString()!;
-        var maxCount = paramsElement.Value.TryGetProperty("maxCount", out var mc) ? mc.GetInt32() : 25;
 
-        ServiceBusReceiver receiver;
-        if (paramsElement.Value.TryGetProperty("subscriptionName", out var subName) &&
-            subName.GetString() is string sub && !string.IsNullOrEmpty(sub))
+        var options = new ServiceBusReceiverOptions();
+        if (deadLetter)
         {
-            receiver = client.CreateReceiver(entityPath, sub,
-                new ServiceBusReceiverOptions { SubQueue = SubQueue.DeadLetter });
+            options.SubQueue = SubQueue.DeadLetter;
         }
-        else
+        if (receiveMode.HasValue)
         {
-            receiver = client.CreateReceiver(entityPath,
-                new ServiceBusReceiverOptions { SubQueue = SubQueue.DeadLetter });
+            options.ReceiveMode = receiveMode.Value;
         }
 
-        await using (receiver)
-        {
-            var messages = await receiver.PeekMessagesAsync(maxCount);
-            return new { messages = messages.Select(MapMessage).ToList() };
-        }
+        return paramsElement.Value.TryGetProperty("subscriptionName", out var subName) &&
+               subName.GetString() is string sub && !string.IsNullOrEmpty(sub)
+            ? client.CreateReceiver(entityPath, sub, options)
+            : client.CreateReceiver(entityPath, options);
+    }
+
+    public Task<object> PeekMessagesAsync(JsonElement? paramsElement)
+        => PeekAsync(paramsElement, IsDeadLetter(paramsElement));
+
+    public Task<object> PeekDeadLetterMessagesAsync(JsonElement? paramsElement)
+        => PeekAsync(paramsElement, deadLetter: true);
+
+    private async Task<object> PeekAsync(JsonElement? paramsElement, bool deadLetter)
+    {
+        var maxCount = paramsElement!.Value.TryGetProperty("maxCount", out var mc) ? mc.GetInt32() : 25;
+        var fromSeq = paramsElement.Value.TryGetProperty("fromSequenceNumber", out var fs) ? fs.GetInt64() : 0;
+
+        await using var receiver = CreateReceiver(paramsElement, deadLetter);
+        var messages = fromSeq > 0
+            ? await receiver.PeekMessagesAsync(maxCount, fromSeq)
+            : await receiver.PeekMessagesAsync(maxCount);
+        return new { messages = messages.Select(MapMessage).ToList() };
     }
 
     public async Task<object> SendMessageAsync(JsonElement? paramsElement)
@@ -118,31 +117,15 @@ public class ServiceBusMessagingService
 
     public async Task<object> PurgeMessagesAsync(JsonElement? paramsElement)
     {
-        var client = GetClient(paramsElement);
-        var entityPath = paramsElement!.Value.GetProperty("entityPath").GetString()!;
-
-        ServiceBusReceiver receiver;
-        if (paramsElement.Value.TryGetProperty("subscriptionName", out var subName) &&
-            subName.GetString() is string sub && !string.IsNullOrEmpty(sub))
-        {
-            receiver = client.CreateReceiver(entityPath, sub,
-                new ServiceBusReceiverOptions { ReceiveMode = ServiceBusReceiveMode.ReceiveAndDelete });
-        }
-        else
-        {
-            receiver = client.CreateReceiver(entityPath,
-                new ServiceBusReceiverOptions { ReceiveMode = ServiceBusReceiveMode.ReceiveAndDelete });
-        }
+        await using var receiver = CreateReceiver(
+            paramsElement, IsDeadLetter(paramsElement), ServiceBusReceiveMode.ReceiveAndDelete);
 
         int purgedCount = 0;
-        await using (receiver)
+        while (true)
         {
-            while (true)
-            {
-                var batch = await receiver.ReceiveMessagesAsync(maxMessages: 100, maxWaitTime: TimeSpan.FromSeconds(2));
-                if (batch.Count == 0) break;
-                purgedCount += batch.Count;
-            }
+            var batch = await receiver.ReceiveMessagesAsync(maxMessages: 100, maxWaitTime: TimeSpan.FromSeconds(2));
+            if (batch.Count == 0) break;
+            purgedCount += batch.Count;
         }
 
         return new { purgedCount };
@@ -150,22 +133,9 @@ public class ServiceBusMessagingService
 
     public async Task<object> DeleteMessageAsync(JsonElement? paramsElement)
     {
-        var client = GetClient(paramsElement);
-        var entityPath = paramsElement!.Value.GetProperty("entityPath").GetString()!;
-        var sequenceNumber = paramsElement.Value.GetProperty("sequenceNumber").GetInt64();
+        var sequenceNumber = paramsElement!.Value.GetProperty("sequenceNumber").GetInt64();
 
-        ServiceBusReceiver receiver;
-        if (paramsElement.Value.TryGetProperty("subscriptionName", out var subName) &&
-            subName.GetString() is string sub && !string.IsNullOrEmpty(sub))
-        {
-            receiver = client.CreateReceiver(entityPath, sub);
-        }
-        else
-        {
-            receiver = client.CreateReceiver(entityPath);
-        }
-
-        await using (receiver)
+        await using (var receiver = CreateReceiver(paramsElement, IsDeadLetter(paramsElement)))
         {
             // Receive messages in batches, complete the target, abandon the rest
             while (true)
@@ -257,7 +227,9 @@ public class ServiceBusMessagingService
             ApplicationProperties = m.ApplicationProperties
                 .ToDictionary(kv => kv.Key, kv => kv.Value?.ToString() ?? ""),
             DeliveryCount = m.DeliveryCount,
-            State = m.State.ToString()
+            State = m.State.ToString(),
+            DeadLetterReason = m.DeadLetterReason,
+            DeadLetterErrorDescription = m.DeadLetterErrorDescription
         };
     }
 }
