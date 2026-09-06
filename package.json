@@ -2,7 +2,7 @@
   "name": "servicebus-emulator-explorer",
   "displayName": "Service Bus Emulator Explorer",
   "description": "Browse queues, topics, peek and send messages on the Azure Service Bus Emulator",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "publisher": "rodrigopiccelli",
   "repository": {
     "type": "git",
