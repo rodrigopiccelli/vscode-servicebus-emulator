@@ -8,6 +8,7 @@ export interface PeekContext {
   entityPath: string;
   subscriptionName?: string;
   deadLetter: boolean;
+  requiresSession: boolean;
   entityLabel: string;
 }
 
@@ -94,13 +95,16 @@ export class MessageListPanel {
     );
     if (confirm !== 'Delete') return;
 
+    const target = this.messages.find((m) => m.sequenceNumber === sequenceNumber);
+
     try {
       await this.client.deleteMessage(
         this.context.connectionName,
         this.context.entityPath,
         sequenceNumber,
         this.context.subscriptionName,
-        this.context.deadLetter
+        this.context.deadLetter,
+        target?.sessionId ?? undefined
       );
       await this.refreshMessages();
       MessageListPanel.onTreeRefreshNeeded?.();
@@ -120,13 +124,30 @@ export class MessageListPanel {
     if (confirm !== 'Purge') return;
 
     try {
-      await this.client.purgeMessages(
-        this.context.connectionName,
-        this.context.entityPath,
-        this.context.subscriptionName,
-        this.context.deadLetter
+      const result = await vscode.window.withProgress(
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: `Purging messages from ${entity}...`,
+        },
+        (progress) => {
+          let elapsed = 0;
+          const ticker = setInterval(() => {
+            elapsed += 2;
+            progress.report({ message: `Still working... (${elapsed}s)` });
+          }, 2000);
+
+          return this.client
+            .purgeMessages(
+              this.context.connectionName,
+              this.context.entityPath,
+              this.context.subscriptionName,
+              this.context.deadLetter,
+              this.context.requiresSession
+            )
+            .finally(() => clearInterval(ticker));
+        }
       );
-      vscode.window.showInformationMessage(`Purged all messages from ${entity}`);
+      vscode.window.showInformationMessage(`Purged ${result.purgedCount} message(s) from ${entity}`);
       await this.refreshMessages();
       MessageListPanel.onTreeRefreshNeeded?.();
     } catch (err) {

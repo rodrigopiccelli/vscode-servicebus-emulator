@@ -174,13 +174,15 @@ export class SidecarClient {
     connectionName: string,
     entityPath: string,
     subscriptionName?: string,
-    deadLetter = false
+    deadLetter = false,
+    requiresSession = false
   ): Promise<{ purgedCount: number }> {
     return this.invoke('purgeMessages', {
       connectionName,
       entityPath,
       subscriptionName: subscriptionName ?? '',
       deadLetter,
+      requiresSession,
     });
   }
 
@@ -189,7 +191,8 @@ export class SidecarClient {
     entityPath: string,
     sequenceNumber: number,
     subscriptionName?: string,
-    deadLetter = false
+    deadLetter = false,
+    sessionId?: string
   ): Promise<{ ok: boolean; deletedSequenceNumber: number }> {
     return this.invoke('deleteMessage', {
       connectionName,
@@ -197,6 +200,7 @@ export class SidecarClient {
       sequenceNumber,
       subscriptionName: subscriptionName ?? '',
       deadLetter,
+      sessionId: sessionId ?? '',
     });
   }
 
@@ -218,6 +222,22 @@ export class SidecarClient {
     subscriptionName: string
   ): Promise<{ ok: boolean; topicName: string; subscriptionName: string }> {
     return this.invoke('createSubscription', { connectionName, topicName, subscriptionName });
+  }
+
+  async deleteQueue(connectionName: string, queueName: string): Promise<{ ok: boolean; name: string }> {
+    return this.invoke('deleteQueue', { connectionName, queueName });
+  }
+
+  async deleteTopic(connectionName: string, topicName: string): Promise<{ ok: boolean; name: string }> {
+    return this.invoke('deleteTopic', { connectionName, topicName });
+  }
+
+  async deleteSubscription(
+    connectionName: string,
+    topicName: string,
+    subscriptionName: string
+  ): Promise<{ ok: boolean; topicName: string; subscriptionName: string }> {
+    return this.invoke('deleteSubscription', { connectionName, topicName, subscriptionName });
   }
 
   async ping(): Promise<{ ok: boolean }> {

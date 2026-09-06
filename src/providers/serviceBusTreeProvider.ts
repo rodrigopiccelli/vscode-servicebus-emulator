@@ -26,6 +26,7 @@ export interface EntityTarget {
   entityPath: string;
   subscriptionName?: string;
   deadLetter: boolean;
+  requiresSession: boolean;
   // Human-readable entity, e.g. 'orders', 'orders-topic/audit (dead-letter)'
   entityLabel: string;
 }
@@ -38,7 +39,13 @@ export function resolveEntityTarget(item: ServiceBusTreeItem): EntityTarget | un
   switch (item.itemType) {
     case 'queue': {
       const q = item.metadata as QueueInfo;
-      return { connectionName, entityPath: q.name, deadLetter: false, entityLabel: q.name };
+      return {
+        connectionName,
+        entityPath: q.name,
+        deadLetter: false,
+        requiresSession: q.requiresSession,
+        entityLabel: q.name,
+      };
     }
     case 'subscription': {
       const s = item.metadata as SubscriptionInfo;
@@ -47,6 +54,7 @@ export function resolveEntityTarget(item: ServiceBusTreeItem): EntityTarget | un
         entityPath: s.topicName,
         subscriptionName: s.subscriptionName,
         deadLetter: false,
+        requiresSession: false,
         entityLabel: `${s.topicName}/${s.subscriptionName}`,
       };
     }
@@ -57,6 +65,7 @@ export function resolveEntityTarget(item: ServiceBusTreeItem): EntityTarget | un
         entityPath: dl.entityPath,
         subscriptionName: dl.subscriptionName,
         deadLetter: true,
+        requiresSession: false,
         entityLabel: `${formatEntityPath(dl)} (dead-letter)`,
       };
     }

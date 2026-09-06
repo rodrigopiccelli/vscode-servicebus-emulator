@@ -59,7 +59,9 @@ export class SendMessagePanel {
               try {
                 appProps = JSON.parse(msg.applicationProperties);
               } catch {
-                vscode.window.showErrorMessage('Application Properties must be valid JSON');
+                const message = 'Application Properties must be valid JSON';
+                vscode.window.showErrorMessage(message);
+                this.panel.webview.postMessage({ command: 'error', message });
                 return;
               }
             }
@@ -67,6 +69,7 @@ export class SendMessagePanel {
             const sessionId = typeof msg.sessionId === 'string' ? msg.sessionId.trim() : '';
             if (this.requiresSession && !sessionId) {
               vscode.window.showErrorMessage('Session ID is required for this queue');
+              this.panel.webview.postMessage({ command: 'error', message: 'Session ID is required for this queue' });
               return;
             }
 
@@ -184,6 +187,14 @@ export class SendMessagePanel {
     function sendMessage() {
       const btn = document.getElementById('sendBtn');
       const status = document.getElementById('status');
+      const sessionId = document.getElementById('sessionId').value.trim();
+
+      if (${this.requiresSession ? 'true' : 'false'} && !sessionId) {
+        status.className = 'status error';
+        status.textContent = 'Error: Session ID is required for this queue';
+        return;
+      }
+
       btn.disabled = true;
       status.className = 'status';
       status.textContent = 'Sending...';
@@ -194,9 +205,21 @@ export class SendMessagePanel {
         contentType: document.getElementById('contentType').value,
         subject: document.getElementById('subject').value,
         correlationId: document.getElementById('correlationId').value,
-        sessionId: document.getElementById('sessionId').value,
+        sessionId: sessionId,
         applicationProperties: document.getElementById('appProps').value,
       });
+    }
+
+    document.getElementById('body').addEventListener('input', clearStatus);
+    document.getElementById('sessionId').addEventListener('input', clearStatus);
+    document.getElementById('subject').addEventListener('input', clearStatus);
+    document.getElementById('correlationId').addEventListener('input', clearStatus);
+    document.getElementById('appProps').addEventListener('input', clearStatus);
+
+    function clearStatus() {
+      const status = document.getElementById('status');
+      status.className = 'status';
+      status.textContent = '';
     }
 
     window.addEventListener('message', (event) => {
@@ -207,6 +230,14 @@ export class SendMessagePanel {
       if (event.data.command === 'sent') {
         status.className = 'status';
         status.textContent = 'Message sent successfully!';
+
+        // Clear the form for the next message, but keep content type and session ID
+        // since they're usually the same across sends to the same entity.
+        document.getElementById('subject').value = '';
+        document.getElementById('correlationId').value = '';
+        document.getElementById('appProps').value = '{}';
+        document.getElementById('body').value = '';
+        document.getElementById('body').focus();
       } else if (event.data.command === 'error') {
         status.className = 'status error';
         status.textContent = 'Error: ' + event.data.message;

@@ -105,7 +105,7 @@ export class ConnectionStore {
   }
 
   private extractHost(connectionString: string): string {
-    const match = connectionString.match(/Endpoint=sb:\/\/([^;/]+)/i);
+    const match = connectionString.match(/Endpoint=(?:sb|amqp|amqps|http|https):\/\/([^;/]+)/i);
     return match ? match[1] : '';
   }
 

@@ -153,6 +153,31 @@ public class ServiceBusAdminService
         return new { ok = true, topicName, subscriptionName };
     }
 
+    public async Task<object> DeleteQueueAsync(JsonElement? paramsElement)
+    {
+        var client = GetClient(paramsElement);
+        var queueName = paramsElement!.Value.GetProperty("queueName").GetString()!;
+        await client.DeleteQueueAsync(queueName);
+        return new { ok = true, name = queueName };
+    }
+
+    public async Task<object> DeleteTopicAsync(JsonElement? paramsElement)
+    {
+        var client = GetClient(paramsElement);
+        var topicName = paramsElement!.Value.GetProperty("topicName").GetString()!;
+        await client.DeleteTopicAsync(topicName);
+        return new { ok = true, name = topicName };
+    }
+
+    public async Task<object> DeleteSubscriptionAsync(JsonElement? paramsElement)
+    {
+        var client = GetClient(paramsElement);
+        var topicName = paramsElement!.Value.GetProperty("topicName").GetString()!;
+        var subscriptionName = paramsElement!.Value.GetProperty("subscriptionName").GetString()!;
+        await client.DeleteSubscriptionAsync(topicName, subscriptionName);
+        return new { ok = true, topicName, subscriptionName };
+    }
+
     public async Task<object> GetQueueRuntimeAsync(JsonElement? paramsElement)
     {
         var client = GetClient(paramsElement);

@@ -27,13 +27,25 @@ export function registerPurgeCommand(
               location: vscode.ProgressLocation.Notification,
               title: `Purging messages from ${target.entityLabel}...`,
             },
-            () =>
-              client.purgeMessages(
-                target.connectionName,
-                target.entityPath,
-                target.subscriptionName,
-                target.deadLetter
-              )
+            (progress) => {
+              // Session-enabled entities are drained session-by-session and can take a while;
+              // tick the message so the notification doesn't look frozen.
+              let elapsed = 0;
+              const ticker = setInterval(() => {
+                elapsed += 2;
+                progress.report({ message: `Still working... (${elapsed}s)` });
+              }, 2000);
+
+              return client
+                .purgeMessages(
+                  target.connectionName,
+                  target.entityPath,
+                  target.subscriptionName,
+                  target.deadLetter,
+                  target.requiresSession
+                )
+                .finally(() => clearInterval(ticker));
+            }
           );
 
           vscode.window.showInformationMessage(

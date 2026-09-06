@@ -117,8 +117,22 @@ public class ServiceBusMessagingService
 
     public async Task<object> PurgeMessagesAsync(JsonElement? paramsElement)
     {
+        var deadLetter = IsDeadLetter(paramsElement);
+        var requiresSession = paramsElement!.Value.TryGetProperty("requiresSession", out var rs) &&
+            rs.ValueKind == JsonValueKind.True;
+
+        // Session-enabled entities reject a plain receiver; every session must be drained individually.
+        int purgedCount = requiresSession && !deadLetter
+            ? await PurgeAllSessionsAsync(paramsElement)
+            : await PurgeReceiverAsync(paramsElement, deadLetter);
+
+        return new { purgedCount };
+    }
+
+    private async Task<int> PurgeReceiverAsync(JsonElement? paramsElement, bool deadLetter)
+    {
         await using var receiver = CreateReceiver(
-            paramsElement, IsDeadLetter(paramsElement), ServiceBusReceiveMode.ReceiveAndDelete);
+            paramsElement, deadLetter, ServiceBusReceiveMode.ReceiveAndDelete);
 
         int purgedCount = 0;
         while (true)
@@ -128,14 +142,68 @@ public class ServiceBusMessagingService
             purgedCount += batch.Count;
         }
 
-        return new { purgedCount };
+        return purgedCount;
+    }
+
+    private async Task<int> PurgeAllSessionsAsync(JsonElement? paramsElement)
+    {
+        var client = GetClient(paramsElement);
+        var entityPath = paramsElement!.Value.GetProperty("entityPath").GetString()!;
+        var subscriptionName = paramsElement.Value.TryGetProperty("subscriptionName", out var subName) &&
+            subName.GetString() is string sub && !string.IsNullOrEmpty(sub) ? sub : null;
+
+        var options = new ServiceBusSessionReceiverOptions { ReceiveMode = ServiceBusReceiveMode.ReceiveAndDelete };
+        int purgedCount = 0;
+
+        while (true)
+        {
+            // The emulator doesn't reliably throw ServiceTimeout when no sessions remain,
+            // so bound the wait ourselves to avoid hanging forever.
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+            ServiceBusSessionReceiver sessionReceiver;
+            try
+            {
+                sessionReceiver = subscriptionName != null
+                    ? await client.AcceptNextSessionAsync(entityPath, subscriptionName, options, cts.Token)
+                    : await client.AcceptNextSessionAsync(entityPath, options, cts.Token);
+            }
+            catch (ServiceBusException ex) when (ex.Reason == ServiceBusFailureReason.ServiceTimeout)
+            {
+                // No more sessions available - every session has been drained.
+                break;
+            }
+            catch (OperationCanceledException)
+            {
+                // No session became available within the timeout - treat as drained.
+                break;
+            }
+
+            await using (sessionReceiver)
+            {
+                while (true)
+                {
+                    var batch = await sessionReceiver.ReceiveMessagesAsync(maxMessages: 100, maxWaitTime: TimeSpan.FromSeconds(2));
+                    if (batch.Count == 0) break;
+                    purgedCount += batch.Count;
+                }
+            }
+        }
+
+        return purgedCount;
     }
 
     public async Task<object> DeleteMessageAsync(JsonElement? paramsElement)
     {
         var sequenceNumber = paramsElement!.Value.GetProperty("sequenceNumber").GetInt64();
+        var sessionId = paramsElement.Value.TryGetProperty("sessionId", out var sidProp)
+            ? sidProp.GetString()
+            : null;
+        var deadLetter = IsDeadLetter(paramsElement);
 
-        await using (var receiver = CreateReceiver(paramsElement, IsDeadLetter(paramsElement)))
+        // Session-enabled entities require a session-scoped receiver to lock and complete messages.
+        await using (var receiver = !string.IsNullOrEmpty(sessionId) && !deadLetter
+            ? await CreateSessionReceiverAsync(paramsElement, sessionId!)
+            : CreateReceiver(paramsElement, deadLetter))
         {
             // Receive messages in batches, complete the target, abandon the rest
             while (true)
@@ -171,6 +239,20 @@ public class ServiceBusMessagingService
 
         throw new InvalidOperationException(
             $"Message with sequence number {sequenceNumber} not found");
+    }
+
+    // Accepts a session-locked receiver for the requested entity/session, honouring the
+    // optional 'subscriptionName' param.
+    private async Task<ServiceBusSessionReceiver> CreateSessionReceiverAsync(
+        JsonElement? paramsElement, string sessionId)
+    {
+        var client = GetClient(paramsElement);
+        var entityPath = paramsElement!.Value.GetProperty("entityPath").GetString()!;
+
+        return paramsElement.Value.TryGetProperty("subscriptionName", out var subName) &&
+               subName.GetString() is string sub && !string.IsNullOrEmpty(sub)
+            ? await client.AcceptSessionAsync(entityPath, sub, sessionId)
+            : await client.AcceptSessionAsync(entityPath, sessionId);
     }
 
     public async Task<(int active, int deadLetter)> CountMessagesAsync(
