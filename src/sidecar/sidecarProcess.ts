@@ -1,4 +1,5 @@
 import { ChildProcess, spawn } from 'child_process';
+import * as fs from 'fs';
 import * as vscode from 'vscode';
 import * as path from 'path';
 
@@ -10,16 +11,30 @@ export class SidecarProcess implements vscode.Disposable {
     this.outputChannel = vscode.window.createOutputChannel('Service Bus Emulator Sidecar');
   }
 
+  private resolveSidecarDll(): string {
+    const possiblePaths = [
+      path.join(this.context.extensionPath, 'sidecar', 'bin', 'ServiceBusEmulatorSidecar.dll'),
+      path.join(this.context.extensionPath, 'sidecar', 'bin', 'Debug', 'net8.0', 'ServiceBusEmulatorSidecar.dll'),
+      path.join(this.context.extensionPath, 'sidecar', 'bin', 'Release', 'net8.0', 'ServiceBusEmulatorSidecar.dll'),
+    ];
+
+    for (const candidate of possiblePaths) {
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
+    }
+
+    return possiblePaths[0];
+  }
+
   async start(): Promise<ChildProcess> {
     const config = vscode.workspace.getConfiguration('serviceBusEmulator');
     const dotnetPath = config.get<string>('dotnetPath', 'dotnet');
+    const sidecarDll = this.resolveSidecarDll();
 
-    const sidecarDll = path.join(
-      this.context.extensionPath,
-      'sidecar',
-      'bin',
-      'ServiceBusEmulatorSidecar.dll'
-    );
+    if (!fs.existsSync(sidecarDll)) {
+      throw new Error(`Service Bus sidecar DLL not found. Expected one of: ${this.resolveSidecarDll()}`);
+    }
 
     this.outputChannel.appendLine(`[sidecar] Starting: ${dotnetPath} ${sidecarDll}`);
 

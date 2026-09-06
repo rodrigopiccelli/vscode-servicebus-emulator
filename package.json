@@ -16,7 +16,23 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onView:serviceBusExplorer",
+    "onCommand:serviceBusEmulator.refresh",
+    "onCommand:serviceBusEmulator.addConnection",
+    "onCommand:serviceBusEmulator.editConnection",
+    "onCommand:serviceBusEmulator.removeConnection",
+    "onCommand:serviceBusEmulator.peekMessages",
+    "onCommand:serviceBusEmulator.sendMessage",
+    "onCommand:serviceBusEmulator.purgeMessages",
+    "onCommand:serviceBusEmulator.refreshEntity",
+    "onCommand:serviceBusEmulator.createQueue",
+    "onCommand:serviceBusEmulator.createTopic",
+    "onCommand:serviceBusEmulator.createSubscription",
+    "onCommand:serviceBusEmulator.deleteQueue",
+    "onCommand:serviceBusEmulator.deleteTopic",
+    "onCommand:serviceBusEmulator.deleteSubscription"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "viewsContainers": {
@@ -103,6 +119,24 @@
         "title": "Create Subscription",
         "icon": "$(add)",
         "category": "Service Bus Emulator"
+      },
+      {
+        "command": "serviceBusEmulator.deleteQueue",
+        "title": "Delete Queue",
+        "icon": "$(trash)",
+        "category": "Service Bus Emulator"
+      },
+      {
+        "command": "serviceBusEmulator.deleteTopic",
+        "title": "Delete Topic",
+        "icon": "$(trash)",
+        "category": "Service Bus Emulator"
+      },
+      {
+        "command": "serviceBusEmulator.deleteSubscription",
+        "title": "Delete Subscription",
+        "icon": "$(trash)",
+        "category": "Service Bus Emulator"
       }
     ],
     "menus": {
@@ -146,6 +180,21 @@
           "command": "serviceBusEmulator.createSubscription",
           "when": "view == serviceBusExplorer && viewItem == topic",
           "group": "inline@3"
+        },
+        {
+          "command": "serviceBusEmulator.deleteQueue",
+          "when": "view == serviceBusExplorer && viewItem == queue",
+          "group": "inline@4"
+        },
+        {
+          "command": "serviceBusEmulator.deleteTopic",
+          "when": "view == serviceBusExplorer && viewItem == topic",
+          "group": "inline@4"
+        },
+        {
+          "command": "serviceBusEmulator.deleteSubscription",
+          "when": "view == serviceBusExplorer && viewItem == subscription",
+          "group": "inline@4"
         },
         {
           "command": "serviceBusEmulator.peekMessages",

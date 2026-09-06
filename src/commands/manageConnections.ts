@@ -4,7 +4,7 @@ import { ConnectionStore } from '../models/connectionStore';
 import { ServiceBusTreeProvider, ServiceBusTreeItem } from '../providers/serviceBusTreeProvider';
 
 const DEFAULT_CONN_STR = 'Endpoint=sb://localhost;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;';
-const DEFAULT_ADMIN_CONN_STR = 'Endpoint=sb://localhost:5300;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;';
+const DEFAULT_ADMIN_CONN_STR = 'Endpoint=http://localhost:5300;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;';
 
 export function registerConnectionCommands(
   context: vscode.ExtensionContext,
@@ -32,7 +32,6 @@ export function registerConnectionCommands(
         prompt: 'Connection string for messaging (AMQP)',
         value: DEFAULT_CONN_STR,
         ignoreFocusOut: true,
-        password: true,
       });
       if (!connectionString) return;
 
@@ -41,7 +40,6 @@ export function registerConnectionCommands(
         prompt: 'Connection string for administration (HTTP)',
         value: DEFAULT_ADMIN_CONN_STR,
         ignoreFocusOut: true,
-        password: true,
       });
       if (!adminConnectionString) return;
 
@@ -90,7 +88,6 @@ export function registerConnectionCommands(
         prompt: 'Connection string for messaging (AMQP)',
         value: existing.connectionString,
         ignoreFocusOut: true,
-        password: true,
       });
       if (!connectionString) return;
 
@@ -99,7 +96,6 @@ export function registerConnectionCommands(
         prompt: 'Connection string for administration (HTTP)',
         value: existing.adminConnectionString,
         ignoreFocusOut: true,
-        password: true,
       });
       if (!adminConnectionString) return;
 
