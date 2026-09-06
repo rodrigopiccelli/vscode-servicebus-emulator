@@ -59,7 +59,9 @@ export class SendMessagePanel {
               try {
                 appProps = JSON.parse(msg.applicationProperties);
               } catch {
-                vscode.window.showErrorMessage('Application Properties must be valid JSON');
+                const message = 'Application Properties must be valid JSON';
+                vscode.window.showErrorMessage(message);
+                this.panel.webview.postMessage({ command: 'error', message });
                 return;
               }
             }
@@ -208,9 +210,17 @@ export class SendMessagePanel {
       });
     }
 
-    document.getElementById('body').addEventListener('input', () => {
-      document.getElementById('status').textContent = '';
-    });
+    document.getElementById('body').addEventListener('input', clearStatus);
+    document.getElementById('sessionId').addEventListener('input', clearStatus);
+    document.getElementById('subject').addEventListener('input', clearStatus);
+    document.getElementById('correlationId').addEventListener('input', clearStatus);
+    document.getElementById('appProps').addEventListener('input', clearStatus);
+
+    function clearStatus() {
+      const status = document.getElementById('status');
+      status.className = 'status';
+      status.textContent = '';
+    }
 
     window.addEventListener('message', (event) => {
       const btn = document.getElementById('sendBtn');

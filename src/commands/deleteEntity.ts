@@ -3,6 +3,10 @@ import { SidecarClient } from '../sidecar/sidecarClient';
 import { ServiceBusTreeItem, ServiceBusTreeProvider } from '../providers/serviceBusTreeProvider';
 import { SubscriptionInfo } from '../sidecar/protocol';
 
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
 export function registerDeleteCommands(
   context: vscode.ExtensionContext,
   client: SidecarClient,
@@ -26,7 +30,7 @@ export function registerDeleteCommands(
         vscode.window.showInformationMessage(`Queue '${queueName}' deleted`);
         treeProvider.refresh();
       } catch (err) {
-        vscode.window.showErrorMessage(`Failed to delete queue: ${err}`);
+        vscode.window.showErrorMessage(`Failed to delete queue: ${errorMessage(err)}`);
       }
     })
   );
@@ -49,7 +53,7 @@ export function registerDeleteCommands(
         vscode.window.showInformationMessage(`Topic '${topicName}' deleted`);
         treeProvider.refresh();
       } catch (err) {
-        vscode.window.showErrorMessage(`Failed to delete topic: ${err}`);
+        vscode.window.showErrorMessage(`Failed to delete topic: ${errorMessage(err)}`);
       }
     })
   );
@@ -75,7 +79,7 @@ export function registerDeleteCommands(
         vscode.window.showInformationMessage(`Subscription '${displayName}' deleted`);
         treeProvider.refresh();
       } catch (err) {
-        vscode.window.showErrorMessage(`Failed to delete subscription: ${err}`);
+        vscode.window.showErrorMessage(`Failed to delete subscription: ${errorMessage(err)}`);
       }
     })
   );

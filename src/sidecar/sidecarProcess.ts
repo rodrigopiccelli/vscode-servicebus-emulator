@@ -11,20 +11,17 @@ export class SidecarProcess implements vscode.Disposable {
     this.outputChannel = vscode.window.createOutputChannel('Service Bus Emulator Sidecar');
   }
 
-  private resolveSidecarDll(): string {
-    const possiblePaths = [
+  private getSidecarDllSearchPaths(): string[] {
+    return [
       path.join(this.context.extensionPath, 'sidecar', 'bin', 'ServiceBusEmulatorSidecar.dll'),
       path.join(this.context.extensionPath, 'sidecar', 'bin', 'Debug', 'net8.0', 'ServiceBusEmulatorSidecar.dll'),
       path.join(this.context.extensionPath, 'sidecar', 'bin', 'Release', 'net8.0', 'ServiceBusEmulatorSidecar.dll'),
     ];
+  }
 
-    for (const candidate of possiblePaths) {
-      if (fs.existsSync(candidate)) {
-        return candidate;
-      }
-    }
-
-    return possiblePaths[0];
+  private resolveSidecarDll(): string {
+    const possiblePaths = this.getSidecarDllSearchPaths();
+    return possiblePaths.find((candidate) => fs.existsSync(candidate)) ?? possiblePaths[0];
   }
 
   async start(): Promise<ChildProcess> {
@@ -33,7 +30,9 @@ export class SidecarProcess implements vscode.Disposable {
     const sidecarDll = this.resolveSidecarDll();
 
     if (!fs.existsSync(sidecarDll)) {
-      throw new Error(`Service Bus sidecar DLL not found. Expected one of: ${this.resolveSidecarDll()}`);
+      throw new Error(
+        `Service Bus sidecar DLL not found. Expected one of:\n${this.getSidecarDllSearchPaths().join('\n')}`
+      );
     }
 
     this.outputChannel.appendLine(`[sidecar] Starting: ${dotnetPath} ${sidecarDll}`);
