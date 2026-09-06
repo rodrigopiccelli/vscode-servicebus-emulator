@@ -88,6 +88,7 @@ export function registerConnectionCommands(
         prompt: 'Connection string for messaging (AMQP)',
         value: existing.connectionString,
         ignoreFocusOut: true,
+        password: true,
       });
       if (!connectionString) return;
 
@@ -96,6 +97,7 @@ export function registerConnectionCommands(
         prompt: 'Connection string for administration (HTTP)',
         value: existing.adminConnectionString,
         ignoreFocusOut: true,
+        password: true,
       });
       if (!adminConnectionString) return;
 
