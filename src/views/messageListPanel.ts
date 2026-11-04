@@ -18,6 +18,7 @@ export class MessageListPanel {
   private disposables: vscode.Disposable[] = [];
   private messages: PeekedMessage[] = [];
   private autoRefreshInterval: ReturnType<typeof setInterval> | null = null;
+  private autoRefreshSeconds = 0;
 
   public static onTreeRefreshNeeded: (() => void) | null = null;
 
@@ -74,6 +75,15 @@ export class MessageListPanel {
           await this.deleteMessage(msg.sequenceNumber);
         } else if (msg.command === 'purge') {
           await this.purgeMessages();
+        } else if (msg.command === 'copyValue' && typeof msg.value === 'string') {
+          let success = false;
+          try {
+            await vscode.env.clipboard.writeText(msg.value);
+            success = true;
+          } catch (err) {
+            vscode.window.showErrorMessage(`Failed to copy value: ${err}`);
+          }
+          await this.panel.webview.postMessage({ command: 'copyResult', requestId: msg.requestId, success });
         }
       },
       undefined,
@@ -168,7 +178,9 @@ export class MessageListPanel {
   }
 
   private setAutoRefresh(seconds: number): void {
+    if (![0, 5, 10, 30].includes(seconds)) return;
     this.stopAutoRefresh();
+    this.autoRefreshSeconds = seconds;
     if (seconds > 0) {
       this.autoRefreshInterval = setInterval(() => this.refreshMessages(), seconds * 1000);
     }
@@ -209,27 +221,15 @@ export class MessageListPanel {
         <tr class="detail-row" id="detail-${i}" style="display:none">
           <td colspan="${columnCount}">
             ${isDlq ? `
-            <div class="detail-section">
-              <strong>Dead-Letter Reason:</strong>
-              <pre>${escapeHtml(m.deadLetterReason ?? 'N/A')}</pre>
-            </div>
-            <div class="detail-section">
-              <strong>Dead-Letter Description:</strong>
-              <pre>${escapeHtml(m.deadLetterErrorDescription ?? 'N/A')}</pre>
-            </div>` : ''}
-            <div class="detail-section">
-              <strong>Body:</strong>
-              <pre>${escapeHtml(tryFormatJson(m.body))}</pre>
-            </div>
-            <div class="detail-section">
-              <strong>Application Properties:</strong>
-              <pre>${escapeHtml(JSON.stringify(m.applicationProperties, null, 2))}</pre>
-            </div>
+            ${renderCopyableValue('Dead-Letter Reason', m.deadLetterReason ?? 'N/A')}
+            ${renderCopyableValue('Dead-Letter Description', m.deadLetterErrorDescription ?? 'N/A')}` : ''}
+            ${renderCopyableValue('Body', tryFormatJson(m.body))}
+            ${renderCopyableValue('Application Properties', JSON.stringify(m.applicationProperties, null, 2))}
             <div class="detail-meta">
-              <span><strong>Correlation ID:</strong> ${escapeHtml(m.correlationId ?? 'N/A')}</span>
-              <span><strong>Session ID:</strong> ${escapeHtml(m.sessionId ?? 'N/A')}</span>
-              <span><strong>Delivery Count:</strong> ${m.deliveryCount}</span>
-              <span><strong>Expires:</strong> ${formatDate(m.expiresAt)}</span>
+              ${renderCopyableValue('Correlation ID', m.correlationId ?? 'N/A')}
+              ${renderCopyableValue('Session ID', m.sessionId ?? 'N/A')}
+              ${renderCopyableValue('Delivery Count', String(m.deliveryCount))}
+              ${renderCopyableValue('Expires', formatDate(m.expiresAt))}
             </div>
           </td>
         </tr>`
@@ -323,7 +323,21 @@ export class MessageListPanel {
       font-size: 12px;
     }
     .detail-section { margin: 8px 0; }
-    .detail-meta { display: flex; gap: 24px; margin-top: 8px; font-size: 12px; }
+    .detail-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .copy-btn {
+      background: transparent;
+      color: var(--vscode-foreground);
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      flex-shrink: 0;
+      font-size: 18px;
+    }
+    .copy-btn:hover { background: var(--vscode-toolbar-hoverBackground); }
+    .copy-btn.copied { color: var(--vscode-testing-iconPassed, var(--vscode-foreground)); }
+    .copy-btn:disabled { cursor: default; }
+    .detail-meta { display: flex; flex-wrap: wrap; gap: 24px; margin-top: 8px; font-size: 12px; }
+    .detail-meta .detail-section { min-width: 0; max-width: 100%; }
     .empty { color: var(--vscode-descriptionForeground); font-style: italic; }
     .last-refresh { font-size: 11px; color: var(--vscode-descriptionForeground); }
     .actions-cell { width: 36px; text-align: center; }
@@ -354,10 +368,7 @@ export class MessageListPanel {
       <span class="last-refresh" id="lastRefresh">Updated: ${new Date().toLocaleTimeString()}</span>
       <label for="autoRefresh">Auto:</label>
       <select id="autoRefresh" onchange="setAutoRefresh(this.value)">
-        <option value="0">Off</option>
-        <option value="5">5s</option>
-        <option value="10">10s</option>
-        <option value="30">30s</option>
+        ${[0, 5, 10, 30].map((seconds) => `<option value="${seconds}"${seconds === this.autoRefreshSeconds ? ' selected' : ''}>${seconds === 0 ? 'Off' : `${seconds}s`}</option>`).join('')}
       </select>
       <button id="refreshBtn" onclick="refresh()">Refresh</button>
       <button class="purge-btn" onclick="purge()">Purge All</button>
@@ -381,6 +392,31 @@ export class MessageListPanel {
   </table>` : ''}
   <script>
     const vscode = acquireVsCodeApi();
+    const pendingCopies = new Map();
+    window.addEventListener('message', (event) => {
+      const message = event.data;
+      if (message.command !== 'copyResult') return;
+      const button = pendingCopies.get(message.requestId);
+      if (!button) return;
+      pendingCopies.delete(message.requestId);
+      if (!message.success) {
+        button.disabled = false;
+        return;
+      }
+      const originalText = button.textContent;
+      const originalTitle = button.title;
+      button.textContent = '\\u2713';
+      button.title = 'Copied';
+      button.setAttribute('aria-label', 'Copied');
+      button.classList.add('copied');
+      setTimeout(() => {
+        button.textContent = originalText;
+        button.title = originalTitle;
+        button.setAttribute('aria-label', originalTitle);
+        button.classList.remove('copied');
+        button.disabled = false;
+      }, 1500);
+    });
     function toggleDetail(i) {
       const row = document.getElementById('detail-' + i);
       if (row) {
@@ -396,6 +432,15 @@ export class MessageListPanel {
     function setAutoRefresh(seconds) {
       vscode.postMessage({ command: 'setAutoRefresh', seconds: parseInt(seconds, 10) });
     }
+    function copyValue(event, button) {
+      event.stopPropagation();
+      if (button.disabled) return;
+      const value = button.closest('.detail-section').querySelector('pre').textContent;
+      const requestId = crypto.randomUUID();
+      pendingCopies.set(requestId, button);
+      button.disabled = true;
+      vscode.postMessage({ command: 'copyValue', value: value, requestId: requestId });
+    }
     function purge() {
       vscode.postMessage({ command: 'purge' });
     }
@@ -409,6 +454,16 @@ export class MessageListPanel {
 </body>
 </html>`;
   }
+}
+
+function renderCopyableValue(label: string, value: string): string {
+  return `<div class="detail-section">
+    <div class="detail-heading">
+      <strong>${escapeHtml(label)}:</strong>
+      <button type="button" class="copy-btn" onclick="copyValue(event, this)" title="Copy ${escapeHtml(label)}" aria-label="Copy ${escapeHtml(label)}" aria-live="polite">&#x2398;</button>
+    </div>
+    <pre>${escapeHtml(value)}</pre>
+  </div>`;
 }
 
 function escapeHtml(str: string): string {
